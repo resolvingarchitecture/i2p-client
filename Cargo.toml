@@ -1,0 +1,24 @@
+[package]
+name = "i2p_client"
+version = "0.0.1"
+authors = ["Brian Taylor <brian@resolvingarchitecture.io>"]
+license-file = "LICENSE"
+edition = "2018"
+description = "A client for the local I2P router instance."
+homepage = "http://resolvingarchitecture.io"
+documentation = "https://github.com/resolvingarchitecture/i2p-client"
+repository = "https://github.com/resolvingarchitecture/i2p-client"
+publish = true
+readme = "README.md"
+keywords = ["i2p","i2p-client"]
+categories = ["command-line-utilities"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.8"
+failure = "0.1.5"
+exitfailure = "0.5.1"
+
+[dev-dependencies]
+assert_cmd = "0.10"
