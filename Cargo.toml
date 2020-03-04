@@ -20,5 +20,7 @@ log = "0.4.8"
 failure = "0.1.5"
 exitfailure = "0.5.1"
 
+ra_traits = "0.0.1"
+
 [dev-dependencies]
 assert_cmd = "0.10"
