@@ -45,10 +45,8 @@ impl I2PClient {
         // info!("Peer addr: {}:{}",peer_addr.0,peer_addr.1);
 
     }
-}
 
-impl Network for I2PClient {
-    fn handle(&mut self, packet: &mut Packet) {
+    pub fn handle(&mut self, packet: &mut Packet) {
         info!("Handling incoming packet id={}",packet.id);
 
     }
