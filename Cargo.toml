@@ -1,6 +1,6 @@
 [package]
 name = "i2p_client"
-version = "0.0.9"
+version = "0.0.10"
 authors = ["Brian Taylor <brian@resolvingarchitecture.io>"]
 license-file = "LICENSE"
 edition = "2018"
@@ -23,7 +23,7 @@ exitfailure = "0.5.1"
 nom = "^2.2"
 rand = "0.3.15"
 
-ra_common = "0.0.40"
+ra_common = "0.0.41"
 
 #i2p = "0.0.1"
 #ire = "0.0.1"
