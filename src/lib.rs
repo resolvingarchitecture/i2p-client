@@ -1,5 +1,7 @@
 use ra_common::models::{Network, Packet};
 
+use log::{trace,info};
+
 pub struct I2PClient {
 
 }
@@ -11,7 +13,7 @@ impl I2PClient {
         })
     }
     pub fn init(&mut self) {
-
+        info!("{}","Initializing I2P Client...")
     }
 }
 
