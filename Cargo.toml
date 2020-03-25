@@ -1,6 +1,6 @@
 [package]
 name = "i2p_client"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Brian Taylor <brian@resolvingarchitecture.io>"]
 license-file = "LICENSE"
 edition = "2018"

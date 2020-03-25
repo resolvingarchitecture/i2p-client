@@ -1,6 +1,6 @@
 use ra_common::models::{Network, Packet};
 
-struct I2PClient {
+pub struct I2PClient {
 
 }
 
