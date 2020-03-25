@@ -1,11 +1,11 @@
 [package]
 name = "i2p_client"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Brian Taylor <brian@resolvingarchitecture.io>"]
 license-file = "LICENSE"
 edition = "2018"
 description = "A client for the local I2P router instance."
-homepage = "http://resolvingarchitecture.io"
+homepage = "https://resolvingarchitecture.io"
 documentation = "https://github.com/resolvingarchitecture/i2p-client"
 repository = "https://github.com/resolvingarchitecture/i2p-client"
 publish = true

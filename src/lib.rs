@@ -14,12 +14,14 @@ impl I2PClient {
     }
     pub fn init(&mut self) {
         info!("{}","Initializing I2P Client...")
+
     }
 }
 
 impl Network for I2PClient {
     fn handle(&mut self, packet: &mut Packet) {
-        unimplemented!()
+        info!("Handling incoming packet id={}",packet.id);
+
     }
 }
 
