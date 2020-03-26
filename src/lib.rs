@@ -1,7 +1,7 @@
 
-use log::{debug,trace,info,warn};
+use log::{info};
 
-use ra_common::models::{Network, Packet};
+use ra_common::models::{Packet};
 
 pub enum ClientType {
     Local    = 0,
