@@ -145,10 +145,10 @@ impl SamConnection {
         Ok(ret["VALUE"].clone())
     }
 
-    pub fn gen(&mut self, sig_type: SigType) -> Result<String, Error> {
+    pub fn gen(&mut self, sig_type: SigType) -> Result<(String,String), Error> {
         let create_gen_msg = format!("DEST GENERATE SIGNATURE_TYPE={} \n", sig_type.string());
         let ret = self.send(create_gen_msg, gen_reply)?;
-        Ok(ret["PUB"].clone())
+        Ok((ret["PUB"].clone(),ret["PRIV"].clone()))
     }
 
     pub fn duplicate(&self) -> io::Result<SamConnection> {
