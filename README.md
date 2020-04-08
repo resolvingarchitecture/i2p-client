@@ -10,7 +10,7 @@
   <h2>I2P Client</h2>
   
   <p>
-   A client for a local I2P instance. 
+   A client for a local I2P instance. Can be ran within the <a target="_blank" href="https://github.com/resolvingarchitecture/service-bus">Service Bus</a> as a Service.
    </p>
   
   <p>
@@ -49,15 +49,16 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 
 ## Goals
 
-* Determine if local I2P client is installed using CLI
-* Connect with local instance using CLI
-* Send message over I2P using CLI
-* Receive message over I2P using CLI
-* Provide ability to launch as a network service and control its lifecycle
-* Control local I2P instance using CLI
-* Control local I2P instance as a service
-* Support service_bus crate
-* Support creating EEPSites
+*[ ] Determine if local I2P client is installed using CLI
+*[ ] Connect with local instance using CLI
+*[ ] Send message over I2P using CLI
+*[ ] Receive message over I2P using CLI
+*[ ] Provide ability to launch as a network service and control its lifecycle
+*[ ] Control local I2P instance using CLI
+*[ ] Control local I2P instance as a service
+*[ ] Support [service_bus](https://crates.io/crates/service-bus) crate
+*[ ] Support requesting EEPSite pages
+*[ ] Support creating EEPSites
 
 
 [Crates.io](https://crates.io/crates/i2p_client)
