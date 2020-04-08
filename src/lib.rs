@@ -1,4 +1,5 @@
 extern crate dirs;
+extern crate base64;
 #[macro_use]
 extern crate nom;
 
@@ -14,12 +15,12 @@ use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read};
 use std::path::{PathBuf, Path};
 use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 
-use nom::{IResult, AsBytes};
+use nom::{IResult, AsBytes, Err};
 
 mod parsers;
-use crate::parsers::{datagram_reply, gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
+use crate::parsers::{datagram_send, datagram_received, gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
 
-use ra_common::models::{Packet, Service, Envelope};
+use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
 use ra_common::utils::wait::wait_a_ms;
 
 static DEFAULT_API: &'static str = "127.0.0.1:7656";
@@ -42,7 +43,7 @@ pub enum SigType {
 }
 
 impl SigType {
-    fn string(&self) -> &str {
+    fn as_string(&self) -> &str {
         match *self {
             SigType::EdDSA_SHA512_Ed25519 => "EDDSA_SHA512_ED25519",
             SigType::EdDSA_SHA512_Ed25519ph => "EDDSA_SHA512_ED25519PH",
@@ -81,6 +82,24 @@ impl SessionStyle {
             SessionStyle::Raw => "RAW",
             SessionStyle::Stream => "STREAM",
         }
+    }
+}
+
+fn verify_request<'a>(vec: &'a [(&str, &str)]) -> Result<HashMap<&'a str, &'a str>, Error> {
+    let new_vec = vec.clone();
+    let map: HashMap<&str, &str> = new_vec.iter().map(|&(k, v)| (k, v)).collect();
+    let res = map.get("RESULT").unwrap_or(&"OK").clone();
+    let msg = map.get("MESSAGE").unwrap_or(&"").clone();
+    match res {
+        "OK" => Ok(map),
+        "CANT_REACH_PEER" | "KEY_NOT_FOUND" | "PEER_NOT_FOUND" => {
+            Err(Error::new(ErrorKind::NotFound, msg))
+        }
+        "DUPLICATED_DEST" => Err(Error::new(ErrorKind::AddrInUse, msg)),
+        "INVALID_KEY" | "INVALID_ID" => Err(Error::new(ErrorKind::InvalidInput, msg)),
+        "TIMEOUT" => Err(Error::new(ErrorKind::TimedOut, msg)),
+        "I2P_ERROR" => Err(Error::new(ErrorKind::Other, msg)),
+        _ => Err(Error::new(ErrorKind::Other, msg)),
     }
 }
 
@@ -129,13 +148,27 @@ impl SamConnection {
         self.send(hello_msg, sam_hello)
     }
 
+    fn receive<F>(&mut self, request_parser: F) -> Result<HashMap<String, String>, Error>
+        where
+            F: Fn(&str) -> IResult<&str, Vec<(&str, &str)>>,
+    {
+        let mut reader = BufReader::new(&self.conn);
+        let mut buffer = String::new();
+        reader.read_to_string(&mut buffer)?;
+        debug!("<- {}", &buffer);
+        let request = request_parser(&buffer);
+        let vec_opts = request.unwrap().1;
+        verify_request(&vec_opts).map(|m| {
+            m.iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect()
+        })
+    }
+
     pub fn connect<A: ToSocketAddrs>(addr: A) -> Result<SamConnection, Error> {
         let tcp_stream = TcpStream::connect(addr)?;
-
         let mut socket = SamConnection { conn: tcp_stream };
-
         socket.handshake()?;
-
         Ok(socket)
     }
 
@@ -146,7 +179,7 @@ impl SamConnection {
     }
 
     pub fn gen(&mut self, sig_type: SigType) -> Result<(String,String), Error> {
-        let create_gen_msg = format!("DEST GENERATE SIGNATURE_TYPE={} \n", sig_type.string());
+        let create_gen_msg = format!("DEST GENERATE SIGNATURE_TYPE={} \n", sig_type.as_string());
         let ret = self.send(create_gen_msg, gen_reply)?;
         Ok((ret["PUB"].clone(),ret["PRIV"].clone()))
     }
@@ -158,9 +191,17 @@ impl SamConnection {
     pub fn send_packet(&mut self, packet: Packet) {
         if packet.envelope.is_some() {
             let env = packet.envelope.unwrap();
-            let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={} \n {}", packet.to_addr, env.msg.len(), String::from_utf8(env.msg).unwrap().as_str());
-            let ret = self.send(send_env_msg, datagram_reply);
+            let enc_msg = base64::encode(env.msg);
+            let send_env_msg = format!("DATAGRAM SEND FROM={} DESTINATION={} SIZE={} MSG={} \n", packet.from_addr, packet.to_addr, enc_msg.len(), enc_msg.as_str());
+            let ret = self.send(send_env_msg, datagram_received);
         }
+    }
+
+    pub fn recv_packet(&mut self) -> Result<Packet, Error> {
+        let ret = self.receive(datagram_send)?;
+        let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
+        let env = Envelope::new(0, 0, dec_msg);
+        Ok(Packet::new(0, PacketType::Data as u8, NetworkId::I2P as u8, ret["FROM"].clone(), ret["DESTINATION"].clone(), Some(env)))
     }
 }
 
@@ -176,10 +217,7 @@ impl Session {
         let ret = sam.send(create_session_msg, sam_session_status)?;
         let local_dest = ret["DESTINATION"].clone();
         // let local_dest = sam.naming_lookup("ME")?;
-        Ok(Session {
-            sam: sam,
-            local_dest: local_dest,
-        })
+        Ok(Session { sam, local_dest })
     }
 
     pub fn sam_api(&self) -> io::Result<SocketAddr> {
@@ -199,6 +237,10 @@ impl Session {
 
     pub fn send_packet(&mut self, packet: Packet) {
         self.sam.send_packet(packet);
+    }
+
+    pub fn recv_packet(&mut self) -> Result<Packet,Error> {
+        self.sam.recv_packet()
     }
 }
 
@@ -312,7 +354,7 @@ impl I2PClient {
             }
         }
         if dest.len() == 0 {
-            // Establish Session, return dest, and write to local_dest
+            // Establish Session, write to local_dest, and set dest
             match Session::create(DEFAULT_API,
                                   "TRANSIENT",
                                   alias.as_str(),
@@ -367,6 +409,15 @@ impl I2PClient {
         // let peer_addr = connection.peer_addr().unwrap();
         // info!("Local addr: {}:{}",local_addr.0,local_addr.1);
         // info!("Peer addr: {}:{}",peer_addr.0,peer_addr.1);
+    }
+
+    pub fn receive(&mut self) -> Result<Packet, Error> {
+        let mut sess = Session::create(DEFAULT_API,
+                              "ME",
+                              "Anon",
+                              SessionStyle::Datagram)?;
+        info!("IP: {}",&sess.sam_api().unwrap().ip().to_string());
+        sess.recv_packet()
     }
 }
 
