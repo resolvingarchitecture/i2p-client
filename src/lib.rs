@@ -339,17 +339,15 @@ impl I2PClient {
                 let mut i2p_local_dest_file = File::open(Path::new(i2p_local_dest_path)).unwrap();
                 match i2p_local_dest_file.read_to_string(&mut dest) {
                     Ok(len) => {
-                        local_addr_loaded = true;
-                        info!("dest ({}): {}", len, dest)
+                        if len > 0 {
+                            local_addr_loaded = true;
+                            info!("dest from file ({}): {}", len, dest);
+                        } else {
+                            info!("{}","dest file empty");
+                        }
                     },
-                    Err(e) => warn!("{}", e.to_string()),
+                    Err(e) => warn!("{}", e),
                     _ => warn!("{}", "unable to load dest file")
-                }
-            } else {
-                match File::create(Path::new(i2p_local_dest_path)) {
-                    Ok(f) => info!("File for dest created: {}", i2p_local_dest_path),
-                    Err(e) => warn!("{}", e.to_string()),
-                    _ => warn!("{}", "unable to create dest file")
                 }
             }
         }
@@ -360,14 +358,17 @@ impl I2PClient {
                                   alias.as_str(),
                                   SessionStyle::Datagram) {
                 Ok(session) => {
-                    info!("IP: {}, Dest: {}",session.sam_api().unwrap().ip().to_string(), session.local_dest);
+                    info!("IP: {}, Dest: {}",session.sam_api().unwrap().ip().to_string(), session.local_dest.clone());
                     dest = session.local_dest;
                     if use_local && !local_addr_loaded {
-                        // Save
-                        match File::open(Path::new(i2p_local_dest_path)).unwrap().write_all(dest.clone().as_bytes()) {
-                            Ok(f) => info!("{} saved",i2p_local_dest_path),
-                            Err(e) => warn!("{}", e.to_string()),
-                            _ => warn!("unable to save dest file {}", i2p_local_dest_path)
+                        info!("Saving dest to file: {}",i2p_local_dest_path);
+                        match File::create(i2p_local_dest_path) {
+                            Ok(f) => {
+                                let mut d_file = f;
+                                d_file.write_all(dest.clone().as_bytes());
+                                d_file.flush();
+                            },
+                            Err(e) => warn!("{}",e)
                         }
                     }
                 },
@@ -380,12 +381,6 @@ impl I2PClient {
         I2PClient {
             local_dest: dest
         }
-    }
-
-    // Handle incoming packets
-    pub fn handle(&mut self, packet: &mut Packet) {
-        info!("Handling incoming packet id={}",packet.id);
-
     }
 
     // Send out Packet with optional Envelope
@@ -424,6 +419,7 @@ impl I2PClient {
 impl Service for I2PClient {
     fn operate(&mut self, operation: u8, env: Envelope) {
         unimplemented!()
+        // let mut packet = Packet::new(1, PacketType::Data as u8, NetworkId::I2P as u8, env.)
     }
 }
 
