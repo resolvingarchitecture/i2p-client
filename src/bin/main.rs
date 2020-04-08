@@ -9,10 +9,10 @@ use nom::tag_cl;
 fn main() {
     simple_logger::init().unwrap();
     trace!("Starting I2P Client Daemon...");
-    let mut client_1 = I2PClient::new(true);
+    let mut client_1 = I2PClient::new(true, String::from("Alice"));
     trace!("address 1 ({}): {}",&client_1.local_dest.len(), &client_1.local_dest.as_str());
 
-    let client_2 = I2PClient::new(false);
+    let client_2 = I2PClient::new(false, String::from("Bob"));
     trace!("address 2 ({}): {}",client_2.local_dest.len(), client_2.local_dest.as_str());
 
     let msg = format!("{}","Message from 1 to 2");

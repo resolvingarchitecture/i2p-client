@@ -25,7 +25,6 @@ use ra_common::utils::wait::wait_a_ms;
 
 static I2P_PID: &'static str = "i2p.pid";
 static I2P_STATUS: &'static str = "i2p.status";
-static I2P_LOCAL_DEST: &'static str = "local_dest";
 
 static SAM_MIN: &'static str = "3.0";
 static SAM_MAX: &'static str = "3.1";
@@ -154,8 +153,9 @@ impl Session {
     ) -> Result<Session, Error> {
         let mut sam = SamConnection::connect(sam_addr).unwrap();
         let create_session_msg = format!("SESSION CREATE STYLE={} ID={} DESTINATION={} \n", style.string(), nickname, destination);
-        sam.send(create_session_msg, sam_session_status)?;
-        let local_dest = sam.naming_lookup("ME")?;
+        let ret = sam.send(create_session_msg, sam_session_status)?;
+        let local_dest = ret["DESTINATION"].clone();
+        // let local_dest = sam.naming_lookup("ME")?;
         Ok(Session {
             sam: sam,
             local_dest: local_dest,
@@ -241,7 +241,7 @@ pub struct I2PClient {
 }
 
 impl I2PClient {
-    pub fn new(use_local: bool) -> I2PClient {
+    pub fn new(use_local: bool, alias: String) -> I2PClient {
         info!("{}", "Initializing I2P Client...");
         // Build paths
         let mut home = dirs::home_dir().unwrap();
@@ -260,13 +260,14 @@ impl I2PClient {
         info!("i2p status file: {}", i2p_status_file.to_str().unwrap());
 
         let mut i2p_local_dest_file = i2p_home.clone();
-        i2p_local_dest_file.push(I2P_LOCAL_DEST);
+        i2p_local_dest_file.push(alias.clone());
         let i2p_local_dest_path = i2p_local_dest_file.to_str().unwrap();
-        info!("i2p local dest file: {}", i2p_local_dest_path);
 
         let mut dest = String::new();
 
         if use_local {
+            info!("i2p local dest file: {}", i2p_local_dest_path);
+
             if Path::new(i2p_local_dest_path).exists() {
                 let mut i2p_local_dest_file = File::open(Path::new(i2p_local_dest_path)).unwrap();
                 match i2p_local_dest_file.read_to_string(&mut dest) {
@@ -285,16 +286,26 @@ impl I2PClient {
             }
         }
         if dest.len() == 0 {
-            // Establish Connection, Generate Keys, and write to local_dest
-            match SamConnection::connect(DEFAULT_API) {
-                Ok(sam) => {
-                    let mut s = sam;
-                    match s.gen(String::from("EDDSA_SHA512_ED25519")) {
-                        Ok(d) => dest = d,
-                        Err(e) => warn!("{}",e.to_string().as_str())
+            // Establish Session, return dest, and write to local_dest
+            match Session::create(DEFAULT_API,
+                                  "TRANSIENT",
+                                  alias.as_str(),
+                                  SessionStyle::Datagram) {
+                Ok(session) => {
+                    info!("IP: {}, Dest: {}",session.sam_api().unwrap().ip().to_string(), session.local_dest);
+                    dest = session.local_dest;
+                    if use_local {
+                        // Save
+                        match File::open(Path::new(i2p_local_dest_path)).unwrap().write_all(dest.clone().as_bytes()) {
+                            Ok(f) => info!("{} saved",i2p_local_dest_path),
+                            Err(e) => warn!("{}", e.to_string()),
+                            _ => warn!("unable to save dest file {}", i2p_local_dest_path)
+                        }
                     }
                 },
-                Err(e) => warn!("{}",e.to_string().as_str())
+                Err(err) => {
+                    warn!("Error: {}",err.to_string());
+                }
             }
         }
         info!("{}","I2P Client initialized.");
@@ -317,7 +328,7 @@ impl I2PClient {
                               SessionStyle::Datagram) {
             Ok(session) => {
                 info!("IP: {}",session.sam_api().unwrap().ip().to_string())
-                // TODO: Send packet
+
             },
             Err(err) => {
                 warn!("Error: {}",err.to_string());
