@@ -83,6 +83,15 @@ named!(pub gen_reply <&str, Vec<(&str, &str)> >,
     )
 );
 
+named!(pub datagram_reply <&str, Vec<(&str, &str)> >,
+    do_parse!(
+              tag_s!("DATAGRAM RECEIVED ")   >>
+        opts: keys_and_values         >>
+              tag_s!("\n")            >>
+         (opts)
+    )
+);
+
 named!(pub sam_dest_reply <&str, Vec<(&str, &str)> >,
     do_parse!(
               tag_s!("DEST REPLY ") >>

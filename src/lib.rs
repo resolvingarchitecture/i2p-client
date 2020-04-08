@@ -14,10 +14,10 @@ use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read};
 use std::path::{PathBuf, Path};
 use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 
-use nom::IResult;
+use nom::{IResult, AsBytes};
 
 mod parsers;
-use crate::parsers::{gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
+use crate::parsers::{datagram_reply, gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
 
 use ra_common::models::{Packet, Service, Envelope};
 use i2p::sam::DEFAULT_API;
@@ -109,11 +109,7 @@ impl SamConnection {
     }
 
     fn handshake(&mut self) -> Result<HashMap<String, String>, Error> {
-        let hello_msg = format!(
-            "HELLO VERSION MIN={min} MAX={max} \n",
-            min = SAM_MIN,
-            max = SAM_MAX
-        );
+        let hello_msg = format!("HELLO VERSION MIN={} MAX={} \n", SAM_MIN, SAM_MAX);
         self.send(hello_msg, sam_hello)
     }
 
@@ -141,6 +137,14 @@ impl SamConnection {
 
     pub fn duplicate(&self) -> io::Result<SamConnection> {
         self.conn.try_clone().map(|s| SamConnection { conn: s })
+    }
+
+    pub fn send_packet(&mut self, packet: Packet) {
+        if packet.envelope.is_some() {
+            let env = packet.envelope.unwrap();
+            let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={} \n {}", packet.to_addr, env.msg.len(), String::from_utf8(env.msg).unwrap().as_str());
+            let ret = self.send(send_env_msg, datagram_reply);
+        }
     }
 }
 
@@ -175,6 +179,10 @@ impl Session {
             sam: s,
             local_dest: self.local_dest.clone(),
         })
+    }
+
+    pub fn send_packet(&mut self, packet: Packet) {
+        self.sam.send_packet(packet);
     }
 }
 
@@ -264,6 +272,7 @@ impl I2PClient {
         let i2p_local_dest_path = i2p_local_dest_file.to_str().unwrap();
 
         let mut dest = String::new();
+        let mut local_addr_loaded = false;
 
         if use_local {
             info!("i2p local dest file: {}", i2p_local_dest_path);
@@ -272,6 +281,7 @@ impl I2PClient {
                 let mut i2p_local_dest_file = File::open(Path::new(i2p_local_dest_path)).unwrap();
                 match i2p_local_dest_file.read_to_string(&mut dest) {
                     Ok(len) => {
+                        local_addr_loaded = true;
                         info!("dest ({}): {}", len, dest)
                     },
                     Err(e) => warn!("{}", e.to_string()),
@@ -294,7 +304,7 @@ impl I2PClient {
                 Ok(session) => {
                     info!("IP: {}, Dest: {}",session.sam_api().unwrap().ip().to_string(), session.local_dest);
                     dest = session.local_dest;
-                    if use_local {
+                    if use_local && !local_addr_loaded {
                         // Save
                         match File::open(Path::new(i2p_local_dest_path)).unwrap().write_all(dest.clone().as_bytes()) {
                             Ok(f) => info!("{} saved",i2p_local_dest_path),
@@ -327,8 +337,9 @@ impl I2PClient {
                               "Anon",
                               SessionStyle::Datagram) {
             Ok(session) => {
-                info!("IP: {}",session.sam_api().unwrap().ip().to_string())
-
+                let mut sess = session;
+                info!("IP: {}",&sess.sam_api().unwrap().ip().to_string());
+                &sess.send_packet(packet);
             },
             Err(err) => {
                 warn!("Error: {}",err.to_string());
