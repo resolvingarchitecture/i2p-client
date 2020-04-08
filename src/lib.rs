@@ -20,8 +20,9 @@ mod parsers;
 use crate::parsers::{datagram_reply, gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
 
 use ra_common::models::{Packet, Service, Envelope};
-use i2p::sam::DEFAULT_API;
 use ra_common::utils::wait::wait_a_ms;
+
+static DEFAULT_API: &'static str = "127.0.0.1:7656";
 
 static I2P_PID: &'static str = "i2p.pid";
 static I2P_STATUS: &'static str = "i2p.status";
@@ -30,9 +31,24 @@ static SAM_MIN: &'static str = "3.0";
 static SAM_MAX: &'static str = "3.1";
 
 pub enum SigType {
-    EDDSA_SHA512_ED25519,
-    EDDSA_SHA512_ED25519PH,
-    REDDSA_SHA512_ED25519
+    /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
+    EdDSA_SHA512_Ed25519,
+    /// Prehash version (double hashing, for offline use such as su3, not for use on the network)
+    /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
+    EdDSA_SHA512_Ed25519ph,
+    /// Blinded version of EdDSA, use for encrypted LS2
+    /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
+    RedDSA_SHA512_Ed25519
+}
+
+impl SigType {
+    fn string(&self) -> &str {
+        match *self {
+            SigType::EdDSA_SHA512_Ed25519 => "EDDSA_SHA512_ED25519",
+            SigType::EdDSA_SHA512_Ed25519ph => "EDDSA_SHA512_ED25519PH",
+            SigType::RedDSA_SHA512_Ed25519 => "REDDSA_SHA512_ED25519",
+        }
+    }
 }
 
 pub enum SessionStyle {
@@ -129,8 +145,8 @@ impl SamConnection {
         Ok(ret["VALUE"].clone())
     }
 
-    pub fn gen(&mut self, sig_type: String) -> Result<String, Error> {
-        let create_gen_msg = format!("DEST GENERATE SIGNATURE_TYPE={} \n", sig_type);
+    pub fn gen(&mut self, sig_type: SigType) -> Result<String, Error> {
+        let create_gen_msg = format!("DEST GENERATE SIGNATURE_TYPE={} \n", sig_type.string());
         let ret = self.send(create_gen_msg, gen_reply)?;
         Ok(ret["PUB"].clone())
     }
