@@ -49,9 +49,9 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 
 ## Goals
 
-*[ ] Determine if local I2P client is installed using CLI
-*[ ] Connect with local instance using CLI
-*[ ] Send message over I2P using CLI
+*[x] Connect with local instance using CLI
+*[x] Determine if local I2P client is installed using CLI
+*[x] Send message over I2P using CLI
 *[ ] Receive message over I2P using CLI
 *[ ] Provide ability to launch as a network service and control its lifecycle
 *[ ] Control local I2P instance using CLI
@@ -59,7 +59,6 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 *[ ] Support [service_bus](https://crates.io/crates/service-bus) crate
 *[ ] Support requesting EEPSite pages
 *[ ] Support creating EEPSites
-
 
 [Crates.io](https://crates.io/crates/i2p_client)
 
