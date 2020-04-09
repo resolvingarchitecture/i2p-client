@@ -49,14 +49,17 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 
 ## Goals
 
-*[x] Connect with local instance using CLI
-*[x] Determine if local I2P client is installed using CLI
-*[x] Send message over I2P using CLI
-*[ ] Receive message over I2P using CLI
-*[ ] Provide ability to launch as a network service and control its lifecycle
-*[ ] Control local I2P instance using CLI
-*[ ] Control local I2P instance as a service
-*[ ] Support [service_bus](https://crates.io/crates/service-bus) crate
+*[x] Connect with local instance
+*[x] Create minimal CLI
+*[x] Lists known aliases
+*[ ] Find a specific destination based on an alias
+*[ ] Ping/Pong
+*[ ] Send message over I2P
+*[ ] Receive message over I2P
+*[ ] Determine if local I2P router installed
+*[ ] Determine if local I2P router running
+*[ ] Control local I2P router instance lifecycle
+*[ ] Support [service_bus](https://crates.io/crates/service-bus) crate implementing Service trait
 *[ ] Support requesting EEPSite pages
 *[ ] Support creating EEPSites
 
@@ -64,9 +67,35 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 
 !! WIP - not stable until version 1.0 !!
 
-## Setup
+## Setup - Ubuntu 18.04
 1. Download & Install I2P Router
-2. Start I2P Router and wait 20 minutes to establish itself
+    ```shell script
+    sudo apt-add-repository ppa:i2p-maintainers/i2p
+    sudo apt-get update
+    sudo apt-get install I2P
+    ```
+2. Start I2P Router from the commandline, wait for the [html console](http://127.0.0.1:7657/home) to launch, then wait for active peers to reach at least 10
+    ```shell script
+    i2prouter start
+    ```
 3. Stop I2P Router
+    ```shell script
+    i2prouter stop
+    ```
 4. Enable SAMv3 port by changing parameter clientApp.0.startOnLoad from false to true in file 
-01-net.i2p.sam.SAMBridge-clients.config located in directory: ~/.i2p/clients.config.d/
+01-net.i2p.sam.SAMBridge-clients.config located in directory: ~/.i2p/clients.config.d/ (~ is your home directory, e.g. on Linux: /home/username)
+5. Install Rust
+   ```shell script
+   sudo apt update
+   sudo apt upgrade
+   curl https://sh.rustup.rs -sSf | sh
+   ```
+6. Restart terminal
+7. Verify Rust installed
+    ```shell script
+     rustc --version
+    ```
+8. Install build essentials
+    ```shell script
+    sudo apt install build-essential
+    ```

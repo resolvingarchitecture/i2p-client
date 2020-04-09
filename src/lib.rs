@@ -26,6 +26,7 @@ static DEFAULT_API: &'static str = "127.0.0.1:7656";
 
 static I2P_PID: &'static str = "i2p.pid";
 static I2P_STATUS: &'static str = "i2p.status";
+static I2P_ADDR_BK: &'static str = "hosts.txt";
 
 static SAM_MIN: &'static str = "3.0";
 static SAM_MAX: &'static str = "3.1";
@@ -245,7 +246,7 @@ impl Session {
     }
 
     pub fn close(&mut self) {
-        self.sam.conn.shutdown(Shutdown::Both);
+        self.sam.conn.shutdown(Shutdown::Both).unwrap();
     }
 }
 
@@ -401,6 +402,45 @@ impl I2PClient {
         }
     }
 
+    pub fn aliases() -> HashMap<String,String> {
+        let home = dirs::home_dir().unwrap();
+        info!("home directory: {}", home.to_str().unwrap());
+
+        let mut i2p_home = home.clone();
+        i2p_home.push(".i2p");
+        info!("i2p directory: {}", i2p_home.to_str().unwrap());
+
+        let mut i2p_hosts = i2p_home.clone();
+        i2p_hosts.push(I2P_ADDR_BK);
+
+        let mut list: Vec<String> = Vec::new();
+        let mut m: HashMap<String,String> = HashMap::new();
+        if i2p_hosts.exists() {
+            let i2p_hosts_file = File::open(i2p_hosts).unwrap();
+            let reader = BufReader::new(i2p_hosts_file);
+            for line in reader.lines() {
+                list.push(line.unwrap());
+            }
+            for s in list {
+                let v: Vec<&str> = s.split('=').collect();
+                m.insert(String::from(v[0]), String::from(v[1]));
+            }
+        }
+        m
+    }
+
+    pub fn dest(alias: &str) -> String {
+        match I2PClient::aliases().get(alias) {
+            Some(v) => {
+                info!("Found alias ({})",alias);
+                v.clone()
+            },
+            None => {
+                info!("Alias ({}) not found",alias);
+                String::from("None")
+            }
+        }
+    }
 
     // Send out Packet with optional Envelope
     pub fn send(&mut self, packet: Packet) {
