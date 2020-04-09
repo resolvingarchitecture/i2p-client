@@ -1,16 +1,16 @@
 extern crate clap;
 extern crate dirs;
 
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg, SubCommand, AppSettings};
 use i2p_client::I2PClient;
 use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
 
 fn main() {
-    println!("I2P Client CLI");
     let m = App::new("I2P_Client")
         .about("A SAMv3 I2P client for the local I2P router instance.")
-        .version("0.0.18")
+        .version("0.0.19")
         .author("Brian Taylor <brian@resolvingarchitecture.io>")
+        .setting(AppSettings::ArgRequiredElseHelp)
         .arg(
             Arg::with_name("alias")
                 .help("Provides an alias when establishing sessions")
@@ -20,7 +20,7 @@ fn main() {
         )
         .arg(
             Arg::with_name("local")
-                .help("use local keys")
+                .help("use local keys [true|false]")
                 .short("l")
                 .long("local")
                 .takes_value(true),
@@ -30,7 +30,7 @@ fn main() {
                 .help("send message")
                 .arg(
                     Arg::with_name("to")
-                        .help("alias in address book or b32 address")
+                        .help("b32 address")
                         .short("t")
                         .long("to")
                         .required(true)
@@ -146,8 +146,6 @@ fn main() {
     // }
 
     // client_alice.shutdown();
-
-    println!("Bye...");
 }
 
 fn dest(alias: &str) {
@@ -156,6 +154,7 @@ fn dest(alias: &str) {
 
 fn aliases() {
     let m = I2PClient::aliases();
+    println!("Aliases...");
     for k in m.keys() {
         println!("{}\n{}\n", k, m.get(k).unwrap());
     }
