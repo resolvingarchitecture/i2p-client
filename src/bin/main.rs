@@ -8,7 +8,7 @@ use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
 fn main() {
     let m = App::new("I2P_Client")
         .about("A SAMv3 I2P client for the local I2P router instance.")
-        .version("0.0.19")
+        .version("0.0.20")
         .author("Brian Taylor <brian@resolvingarchitecture.io>")
         .setting(AppSettings::ArgRequiredElseHelp)
         .arg(
