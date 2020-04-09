@@ -4,7 +4,6 @@ extern crate base64;
 extern crate nom;
 
 use std::fs::File;
-use std::io::prelude::*;
 
 use log::{debug,info,warn};
 
@@ -12,16 +11,16 @@ use std::clone::Clone;
 use std::collections::HashMap;
 use std::io;
 use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read};
-use std::path::{PathBuf, Path};
+use std::path::{Path};
 use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 
-use nom::{IResult, AsBytes, Err};
+use nom::{IResult};
 
 mod parsers;
 use crate::parsers::{datagram_send, datagram_received, gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
 
 use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
-use ra_common::utils::wait::wait_a_ms;
+use ra_common::utils::wait::wait_a_sec;
 
 static DEFAULT_API: &'static str = "127.0.0.1:7656";
 
@@ -33,21 +32,21 @@ static SAM_MAX: &'static str = "3.1";
 
 pub enum SigType {
     /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
-    EdDSA_SHA512_Ed25519,
+    EdDsaSha512Ed25519,
     /// Prehash version (double hashing, for offline use such as su3, not for use on the network)
     /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
-    EdDSA_SHA512_Ed25519ph,
+    EdDsaSha512Ed25519ph,
     /// Blinded version of EdDSA, use for encrypted LS2
     /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
-    RedDSA_SHA512_Ed25519
+    RedDsaSha512Ed25519
 }
 
 impl SigType {
     fn as_string(&self) -> &str {
         match *self {
-            SigType::EdDSA_SHA512_Ed25519 => "EDDSA_SHA512_ED25519",
-            SigType::EdDSA_SHA512_Ed25519ph => "EDDSA_SHA512_ED25519PH",
-            SigType::RedDSA_SHA512_Ed25519 => "REDDSA_SHA512_ED25519",
+            SigType::EdDsaSha512Ed25519 => "EDDSA_SHA512_ED25519",
+            SigType::EdDsaSha512Ed25519ph => "EDDSA_SHA512_ED25519PH",
+            SigType::RedDsaSha512Ed25519 => "REDDSA_SHA512_ED25519",
         }
     }
 }
@@ -193,11 +192,13 @@ impl SamConnection {
             let env = packet.envelope.unwrap();
             let enc_msg = base64::encode(env.msg);
             let send_env_msg = format!("DATAGRAM SEND FROM={} DESTINATION={} SIZE={} MSG={} \n", packet.from_addr, packet.to_addr, enc_msg.len(), enc_msg.as_str());
-            let ret = self.send(send_env_msg, datagram_received);
+            info!("Sending packet...");
+            self.send(send_env_msg, datagram_received).unwrap();
         }
     }
 
     pub fn recv_packet(&mut self) -> Result<Packet, Error> {
+        info!("Waiting on packet...");
         let ret = self.receive(datagram_send)?;
         let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
         let env = Envelope::new(0, 0, dec_msg);
@@ -241,6 +242,10 @@ impl Session {
 
     pub fn recv_packet(&mut self) -> Result<Packet,Error> {
         self.sam.recv_packet()
+    }
+
+    pub fn close(&mut self) {
+        self.sam.conn.shutdown(Shutdown::Both);
     }
 }
 
@@ -303,14 +308,15 @@ pub enum ClientType {
 }
 
 pub struct I2PClient {
-    pub local_dest: String
+    pub local_dest: String,
+    session: Session
 }
 
 impl I2PClient {
     pub fn new(use_local: bool, alias: String) -> I2PClient {
         info!("{}", "Initializing I2P Client...");
         // Build paths
-        let mut home = dirs::home_dir().unwrap();
+        let home = dirs::home_dir().unwrap();
         info!("home directory: {}", home.to_str().unwrap());
 
         let mut i2p_home = home.clone();
@@ -346,8 +352,7 @@ impl I2PClient {
                             info!("{}","dest file empty");
                         }
                     },
-                    Err(e) => warn!("{}", e),
-                    _ => warn!("{}", "unable to load dest file")
+                    Err(e) => warn!("{}", e)
                 }
             }
         }
@@ -365,8 +370,7 @@ impl I2PClient {
                         match File::create(i2p_local_dest_path) {
                             Ok(f) => {
                                 let mut d_file = f;
-                                d_file.write_all(dest.clone().as_bytes());
-                                d_file.flush();
+                                d_file.write_all(dest.clone().as_bytes()).unwrap();
                             },
                             Err(e) => warn!("{}",e)
                         }
@@ -377,43 +381,41 @@ impl I2PClient {
                 }
             }
         }
-        info!("{}","I2P Client initialized.");
-        I2PClient {
-            local_dest: dest
+
+        loop {
+            info!("{}","Trying to create session...");
+            let res = Session::create(DEFAULT_API,
+                                      &dest.as_str(),
+                                      &alias.as_str(),
+                                      SessionStyle::Datagram);
+            if res.is_ok() {
+                info!("{}", "I2P Client initialized.");
+                return I2PClient {
+                    local_dest: dest,
+                    session: res.unwrap()
+                }
+            } else {
+                warn!("Unable to create Session ({})...waiting a few seconds...", res.err().unwrap());
+                wait_a_sec(3)
+            }
         }
     }
+
 
     // Send out Packet with optional Envelope
     pub fn send(&mut self, packet: Packet) {
-        match Session::create(DEFAULT_API,
-                              packet.to_addr.as_str(),
-                              "Anon",
-                              SessionStyle::Datagram) {
-            Ok(session) => {
-                let mut sess = session;
-                info!("IP: {}",&sess.sam_api().unwrap().ip().to_string());
-                &sess.send_packet(packet);
-            },
-            Err(err) => {
-                warn!("Error: {}",err.to_string());
-            }
-        }
-
-        // let mut connection = StreamConnect::new(DEFAULT_STREAM_API, "1m5.i2p", 8000, "1m5").unwrap();
-        // let local_addr = connection.local_addr().unwrap();
-        // let peer_addr = connection.peer_addr().unwrap();
-        // info!("Local addr: {}:{}",local_addr.0,local_addr.1);
-        // info!("Peer addr: {}:{}",peer_addr.0,peer_addr.1);
+        self.session.send_packet(packet);
     }
 
     pub fn receive(&mut self) -> Result<Packet, Error> {
-        let mut sess = Session::create(DEFAULT_API,
-                              "ME",
-                              "Anon",
-                              SessionStyle::Datagram)?;
-        info!("IP: {}",&sess.sam_api().unwrap().ip().to_string());
-        sess.recv_packet()
+        self.session.recv_packet()
     }
+
+    // pub fn shutdown(&mut self) {
+    //     if self.session.is_some() {
+    //         self.session.unwrap().close();
+    //     }
+    // }
 }
 
 impl Service for I2PClient {
