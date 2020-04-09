@@ -26,7 +26,7 @@ static DEFAULT_API: &'static str = "127.0.0.1:7656";
 
 static I2P_PID: &'static str = "i2p.pid";
 static I2P_STATUS: &'static str = "i2p.status";
-static I2P_ADDR_BK: &'static str = "hosts.txt";
+static I2P_ADDR_BK: &'static str = "eepsite/docroot/hosts.txt";
 
 static SAM_MIN: &'static str = "3.0";
 static SAM_MAX: &'static str = "3.1";
@@ -348,7 +348,7 @@ impl I2PClient {
                     Ok(len) => {
                         if len > 0 {
                             local_addr_loaded = true;
-                            info!("dest from file ({}): {}", len, dest);
+                            info!("dest from file ({}): {}", len, &dest);
                         } else {
                             info!("{}","dest file empty");
                         }
@@ -357,7 +357,7 @@ impl I2PClient {
                 }
             }
         }
-        if dest.len() == 0 {
+        if dest.is_empty() {
             // Establish Session, write to local_dest, and set dest
             match Session::create(DEFAULT_API,
                                   "TRANSIENT",
@@ -412,13 +412,19 @@ impl I2PClient {
 
         let mut i2p_hosts = i2p_home.clone();
         i2p_hosts.push(I2P_ADDR_BK);
+        info!("i2p personal address book: {}", i2p_hosts.to_str().unwrap());
 
         let mut list: Vec<String> = Vec::new();
         let mut m: HashMap<String,String> = HashMap::new();
         if i2p_hosts.exists() {
             let i2p_hosts_file = File::open(i2p_hosts).unwrap();
             let reader = BufReader::new(i2p_hosts_file);
+            let mut first_line_skipped = false;
             for line in reader.lines() {
+                if !first_line_skipped {
+                    first_line_skipped = true;
+                    continue;
+                }
                 list.push(line.unwrap());
             }
             for s in list {

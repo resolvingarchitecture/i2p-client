@@ -16,7 +16,7 @@
   <p>
     <a href="https://travis-ci.com/resolvingarchitecture/i2p-client"><img alt="build" src="https://img.shields.io/travis/resolvingarchitecture/i2p-client"/></a>
     <a href="https://crates.io/crates/i2p-client"><img alt="Crate Info" src="https://img.shields.io/crates/v/i2p-client.svg"/></a>
-    <a href="https://docs.rs/crate/i2p-client/"><img alt="API Docs" src="https://img.shields.io/badge/docs.i2p-client-green"/></a>
+    <a href="https://docs.rs/crate/i2p_client/"><img alt="API Docs" src="https://img.shields.io/badge/docs.i2p-client-green"/></a>
   </p>
   <p>
     <a href="https://github.com/resolvingarchitecture/i2p-client/blob/master/LICENSE"><img alt="License" src="https://img.shields.io/github/license/resolvingarchitecture/i2p-client"/></a>
@@ -83,7 +83,7 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
     i2prouter stop
     ```
 4. Enable SAMv3 port by changing parameter clientApp.0.startOnLoad from false to true in file 
-01-net.i2p.sam.SAMBridge-clients.config located in directory: ~/.i2p/clients.config.d/ (~ is your home directory, e.g. on Linux: /home/username)
+01-net.i2p.sam.SAMBridge-clients.config located in your home directory at: .i2p/clients.config.d/ (your home directory on Linux: /home/username)
 5. Install Rust
    ```shell script
    sudo apt update
