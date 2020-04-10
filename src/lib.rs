@@ -208,6 +208,14 @@ impl SamConnection {
         }
     }
 
+    // pub fn site(&mut self, host_dest: &str) -> Result<Vec<u8>, Error> {
+    //     let local_dest = "";
+    //     let send_env_msg = format!("DATAGRAM SEND FROM={} DESTINATION={} SIZE={} MSG={} \n",
+    //                                local_dest, host_dest, 0, "");
+    //     info!("Sending site request...");
+    //     self.send(send_env_msg, datagram_received).unwrap()
+    // }
+
     /// Listener waiting for Ping request from peer on established session
     // pub fn pong(&mut self) -> Result<Packet, Error> {
     //     info!("Waiting on remote ping...");
@@ -289,6 +297,11 @@ impl Session {
 
     pub fn ping(&mut self, msg: &str) -> Option<String> {
         self.sam.ping(msg)
+    }
+
+    pub fn site(&mut self, host_dest: &str) -> Result<Vec<u8>, Error> {
+        unimplemented!()
+        // self.sam.site(host_dest)
     }
 
     pub fn close(&mut self) {
@@ -505,6 +518,12 @@ impl I2PClient {
 
     pub fn ping(&mut self, msg: &str) -> Option<String> {
         self.session.ping(msg)
+    }
+
+    pub fn site(&mut self, host: &str) -> Result<Vec<u8>, Error> {
+        let host_dest = I2PClient::dest(host);
+        info!("Sending request for site: {}", &host_dest);
+        self.session.site(host_dest.as_str())
     }
 
     // pub fn shutdown(&mut self) {

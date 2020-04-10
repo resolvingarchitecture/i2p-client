@@ -31,7 +31,7 @@ fn main() {
         )
         .subcommand(
             SubCommand::with_name("ping")
-                .help("ping/pong to verify connection to I2P router")
+                .help("ping/pong to verify connection to I2P router - not active until 3.2")
                 .arg(
                     Arg::with_name("message")
                         .help("message to send as string")
@@ -43,7 +43,7 @@ fn main() {
         )
         .subcommand(
             SubCommand::with_name("send")
-                .help("send message")
+                .help("send message - untested")
                 .arg(
                     Arg::with_name("to")
                         .help("b32 address")
@@ -54,16 +54,18 @@ fn main() {
                 )
                 .arg(
                     Arg::with_name("message")
-                        .help("message to send as string")
+                        .help("message to send as string - required, max size=31,744 bytes, recommended size is <11KB")
                         .short("m")
                         .long("msg")
+                        .min_values(1)
+                        .max_values(31_744)
                         .required(true)
                         .takes_value(true),
                 )
         )
         .subcommand(
             SubCommand::with_name("receive")
-                .help("receive messages")
+                .help("receive messages - untested")
                 .arg(
                     Arg::with_name("wait")
                         .help("max time in seconds to wait. default is 0. 255 is max. Not yet working - blocks indefinitely.")
@@ -86,6 +88,26 @@ fn main() {
                         .help("alias for search")
                         .short("n")
                         .long("nick")
+                        .required(true)
+                        .takes_value(true),
+                )
+        )
+        .subcommand(
+            SubCommand::with_name("site")
+                .help("retrieve eepsite and save to local specified directory")
+                .arg(
+                    Arg::with_name("host")
+                        .help("host name, e.g. 1m5.i2p")
+                        .short("h")
+                        .long("host")
+                        .required(true)
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("directory")
+                        .help("directory to save to")
+                        .short("d")
+                        .long("dir")
                         .required(true)
                         .takes_value(true),
                 )
@@ -129,7 +151,14 @@ fn main() {
                 println!("dest nick: {}",nick);
                 dest(nick);
             }
-        }
+        },
+        Some("site") => {
+            if m.value_of("host").is_some() && m.value_of("directory").is_some() {
+                let host = m.value_of("host").unwrap();
+                let dir = m.value_of("directory").unwrap();
+                site(host, dir);
+            }
+        },
         None => {
             println!("No subcommand was used")
         },
@@ -214,5 +243,12 @@ fn receive(use_local: bool, alias: String, wait: u8) {
             }
         },
         Err(e) => println!("{}", e)
+    }
+}
+
+fn site(host: &str, dir: &str) {
+    let mut client = I2PClient::new(true, String::from("Anon"));
+    match client.site(host) {
+
     }
 }
