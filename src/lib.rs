@@ -25,6 +25,7 @@ use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
 use ra_common::utils::wait::wait_a_sec;
 
 static DEFAULT_API: &'static str = "127.0.0.1:7656";
+// static DEFAULT_UDP_API: &'static str = "127.0.0.1:7655";
 
 static I2P_PID: &'static str = "i2p.pid";
 static I2P_STATUS: &'static str = "i2p.status";
@@ -87,7 +88,7 @@ impl SessionStyle {
     }
 }
 
-fn verify_request<'a>(vec: &'a [(&str, &str)]) -> Result<HashMap<&'a str, &'a str>, Error> {
+fn verify_received<'a>(vec: &'a [(&str, &str)]) -> Result<HashMap<&'a str, &'a str>, Error> {
     let new_vec = vec.clone();
     let map: HashMap<&str, &str> = new_vec.iter().map(|&(k, v)| (k, v)).collect();
     let res = map.get("RESULT").unwrap_or(&"OK").clone();
@@ -137,7 +138,10 @@ impl SamConnection {
         debug!("<- {}", &buffer);
 
         let response = reply_parser(&buffer);
-        let vec_opts = response.unwrap().1;
+        let vec = response.unwrap();
+        let vec_cmd = vec.0;
+        debug!("vec_cmd: {}",vec_cmd);
+        let vec_opts = vec.1;
         verify_response(&vec_opts).map(|m| {
             m.iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -150,7 +154,7 @@ impl SamConnection {
         self.send(hello_msg, sam_hello)
     }
 
-    fn receive<F>(&mut self, request_parser: F) -> Result<HashMap<String, String>, Error>
+    fn receive<F>(&mut self, received_parser: F) -> Result<HashMap<String, String>, Error>
         where
             F: Fn(&str) -> IResult<&str, Vec<(&str, &str)>>,
     {
@@ -158,9 +162,9 @@ impl SamConnection {
         let mut buffer = String::new();
         reader.read_to_string(&mut buffer)?;
         debug!("<- {}", &buffer);
-        let request = request_parser(&buffer);
-        let vec_opts = request.unwrap().1;
-        verify_request(&vec_opts).map(|m| {
+        let received = received_parser(&buffer);
+        let vec_opts = received.unwrap().1;
+        verify_received(&vec_opts).map(|m| {
             m.iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect()
@@ -190,6 +194,7 @@ impl SamConnection {
         self.conn.try_clone().map(|s| SamConnection { conn: s })
     }
 
+    /// Ping request to peer based on established session
     pub fn ping(&mut self, msg: &str) -> Option<String> {
         match self.send(format!("PING {}", msg), pong_received) {
             Ok(ret) => {
@@ -203,11 +208,27 @@ impl SamConnection {
         }
     }
 
+    /// Listener waiting for Ping request from peer on established session
+    // pub fn pong(&mut self) -> Result<Packet, Error> {
+    //     info!("Waiting on remote ping...");
+    //     let ret = self.receive(datagram_send)?;
+    //     let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
+    //     let env = Envelope::new(0, 0, dec_msg);
+    //     Ok(Packet::new(
+    //         0,
+    //         PacketType::Data as u8,
+    //         NetworkId::I2P as u8,
+    //         ret["FROM"].clone(),
+    //         ret["DESTINATION"].clone(),
+    //         Some(env)))
+    // }
+
     pub fn send_packet(&mut self, packet: Packet) {
         if packet.envelope.is_some() {
             let env = packet.envelope.unwrap();
             let enc_msg = base64::encode(env.msg);
-            let send_env_msg = format!("DATAGRAM SEND FROM={} DESTINATION={} SIZE={} MSG={} \n", packet.from_addr, packet.to_addr, enc_msg.len(), enc_msg.as_str());
+            let send_env_msg = format!("DATAGRAM SEND FROM={} DESTINATION={} SIZE={} MSG={} \n",
+                                       packet.from_addr, packet.to_addr, enc_msg.len(), enc_msg.as_str());
             info!("Sending packet...");
             self.send(send_env_msg, datagram_received).unwrap();
         }
@@ -218,7 +239,13 @@ impl SamConnection {
         let ret = self.receive(datagram_send)?;
         let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
         let env = Envelope::new(0, 0, dec_msg);
-        Ok(Packet::new(0, PacketType::Data as u8, NetworkId::I2P as u8, ret["FROM"].clone(), ret["DESTINATION"].clone(), Some(env)))
+        Ok(Packet::new(
+            0,
+            PacketType::Data as u8,
+            NetworkId::I2P as u8,
+            ret["FROM"].clone(),
+            ret["DESTINATION"].clone(),
+            Some(env)))
     }
 }
 
