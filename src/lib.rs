@@ -19,7 +19,7 @@ use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 use nom::{IResult};
 
 mod parsers;
-use crate::parsers::{datagram_send, datagram_received, gen_reply, pong_received, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
+use crate::parsers::{datagram_send, datagram_received, gen_reply, pong_received, ping_received, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
 
 use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
 use ra_common::utils::wait::wait_a_sec;
@@ -211,8 +211,8 @@ impl SamConnection {
     /// Listener waiting for Ping request from peer on established session
     // pub fn pong(&mut self) -> Result<Packet, Error> {
     //     info!("Waiting on remote ping...");
-    //     let ret = self.receive(datagram_send)?;
-    //     let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
+    //     let ret = self.receive(ping_received)?;
+    //     let dec_msg = base64::decode(ret["PONG"].clone().into_bytes()).unwrap();
     //     let env = Envelope::new(0, 0, dec_msg);
     //     Ok(Packet::new(
     //         0,

@@ -92,6 +92,15 @@ named!(pub pong_received <&str, Vec<(&str, &str)> >,
     )
 );
 
+named!(pub ping_received <&str, Vec<(&str, &str)> >,
+    do_parse!(
+              tag_s!("PING ") >>
+        opts: keys_and_values       >>
+              tag_s!("\n")          >>
+        (opts)
+    )
+);
+
 named!(pub datagram_received <&str, Vec<(&str, &str)> >,
     do_parse!(
               tag_s!("DATAGRAM RECEIVED ")   >>
