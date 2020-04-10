@@ -51,17 +51,17 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 
 *[x] Connect with local instance
 *[x] Create minimal CLI
-*[x] Lists known aliases
-*[ ] Find a specific destination based on an alias
-*[ ] Ping/Pong
+*[x] Lists known aliases with b32 addresses (from published personal addressbook - .i2p/eepsite/docroot/hosts.txt)
+*[x] Find a specific destination based on an alias
+*[x] Ping/Pong (Code implemented; waiting on SAM 3.2 support - currently only supporting 3.0-3.1)
+*[ ] Support requesting EEPSite pages persisting locally
 *[ ] Send message over I2P
 *[ ] Receive message over I2P
 *[ ] Determine if local I2P router installed
-*[ ] Determine if local I2P router running
-*[ ] Control local I2P router instance lifecycle
+*[ ] Determine local I2P router status
+*[ ] Auto-install I2P router
 *[ ] Support [service_bus](https://crates.io/crates/service-bus) crate implementing Service trait
-*[ ] Support requesting EEPSite pages
-*[ ] Support creating EEPSites
+*[ ] Control local I2P router instance lifecycle (start/stop)
 
 [Crates.io](https://crates.io/crates/i2p_client)
 

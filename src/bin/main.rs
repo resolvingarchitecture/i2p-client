@@ -1,14 +1,18 @@
 extern crate clap;
 extern crate dirs;
+#[macro_use]
+extern crate log;
+extern crate simple_logger;
 
 use clap::{App, Arg, SubCommand, AppSettings};
 use i2p_client::I2PClient;
 use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
 
 fn main() {
+    simple_logger::init().unwrap();
     let m = App::new("I2P_Client")
         .about("A SAMv3 I2P client for the local I2P router instance.")
-        .version("0.0.20")
+        .version("0.0.21")
         .author("Brian Taylor <brian@resolvingarchitecture.io>")
         .setting(AppSettings::ArgRequiredElseHelp)
         .arg(
@@ -24,6 +28,18 @@ fn main() {
                 .short("l")
                 .long("local")
                 .takes_value(true),
+        )
+        .subcommand(
+            SubCommand::with_name("ping")
+                .help("ping/pong to verify connection to I2P router")
+                .arg(
+                    Arg::with_name("message")
+                        .help("message to send as string")
+                        .short("m")
+                        .long("msg")
+                        .required(true)
+                        .takes_value(true),
+                )
         )
         .subcommand(
             SubCommand::with_name("send")
@@ -87,10 +103,15 @@ fn main() {
     }
 
     match m.subcommand_name() {
+        Some("ping") => {
+            let mut msg = "keep-alive";
+            if m.value_of("message").is_some() {
+                msg = m.value_of("message").unwrap();
+            }
+            ping(msg);
+        },
         Some("send") => {
-            let msg = String::from(m.value_of("msg").unwrap());
-            let to = String::from(m.value_of("to").unwrap());
-            send(local, alias, to, msg);
+            send(local, alias, String::from(m.value_of("to").unwrap()), String::from(m.value_of("msg").unwrap()));
         },
         Some("receive") => {
             let mut wait: u8 = 0; // default
@@ -146,6 +167,15 @@ fn main() {
     // }
 
     // client_alice.shutdown();
+}
+
+fn ping(msg: &str) {
+    let mut client = I2PClient::new(true, String::from("Anon"));
+
+    match client.ping(msg) {
+        Some(s) => println!("Pong response: {}",s),
+        None => println!("No response")
+    }
 }
 
 fn dest(alias: &str) {

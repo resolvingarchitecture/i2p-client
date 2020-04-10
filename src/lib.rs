@@ -2,6 +2,9 @@ extern crate dirs;
 extern crate base64;
 #[macro_use]
 extern crate nom;
+#[macro_use]
+extern crate log;
+extern crate simple_logger;
 
 use std::fs::File;
 
@@ -17,7 +20,7 @@ use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 use nom::{IResult};
 
 mod parsers;
-use crate::parsers::{datagram_send, datagram_received, gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
+use crate::parsers::{datagram_send, datagram_received, gen_reply, pong_received, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
 
 use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
 use ra_common::utils::wait::wait_a_sec;
@@ -188,6 +191,19 @@ impl SamConnection {
         self.conn.try_clone().map(|s| SamConnection { conn: s })
     }
 
+    pub fn ping(&mut self, msg: &str) -> Option<String> {
+        match self.send(format!("PING {}", msg), pong_received) {
+            Ok(ret) => {
+                if ret["PONG"].is_empty() {
+                    Some(String::from("Response with no msg"))
+                } else {
+                    Some(ret["PONG"].clone())
+                }
+            },
+            Err(e) => Some(e.to_string())
+        }
+    }
+
     pub fn send_packet(&mut self, packet: Packet) {
         if packet.envelope.is_some() {
             let env = packet.envelope.unwrap();
@@ -243,6 +259,10 @@ impl Session {
 
     pub fn recv_packet(&mut self) -> Result<Packet,Error> {
         self.sam.recv_packet()
+    }
+
+    pub fn ping(&mut self, msg: &str) -> Option<String> {
+        self.sam.ping(msg)
     }
 
     pub fn close(&mut self) {
@@ -455,6 +475,10 @@ impl I2PClient {
 
     pub fn receive(&mut self) -> Result<Packet, Error> {
         self.session.recv_packet()
+    }
+
+    pub fn ping(&mut self, msg: &str) -> Option<String> {
+        self.session.ping(msg)
     }
 
     // pub fn shutdown(&mut self) {
