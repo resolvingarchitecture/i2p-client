@@ -4,7 +4,6 @@ extern crate base64;
 extern crate nom;
 #[macro_use]
 extern crate log;
-extern crate simple_logger;
 
 use std::fs::File;
 
