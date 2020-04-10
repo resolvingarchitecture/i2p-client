@@ -248,7 +248,7 @@ fn receive(use_local: bool, alias: String, wait: u8) {
 
 fn site(host: &str, dir: &str) {
     let mut client = I2PClient::new(true, String::from("Anon"));
-    match client.site(host) {
-
-    }
+    // match client.site(host) {
+    //
+    // }
 }
