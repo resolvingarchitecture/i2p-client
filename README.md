@@ -47,21 +47,53 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 ## Notes
 !! WIP - not stable until version 1.0 !!
 
+[I2P-RS version](https://github.com/i2p/i2p-rs) use attempted but not fully working as of 1st Qtr 2020.
+
 ## Goals
 
-*[x] Connect with local instance
-*[x] Create minimal CLI
-*[x] Lists known aliases with b32 addresses (from published personal addressbook - .i2p/eepsite/docroot/hosts.txt)
-*[x] Find a specific destination based on an alias
-*[x] Ping/Pong (Code implemented; waiting on SAM 3.2 support - currently only supporting 3.0-3.1)
-*[ ] Support requesting EEPSite pages persisting locally
-*[ ] Send message over I2P
-*[ ] Receive message over I2P
-*[ ] Determine if local I2P router installed
-*[ ] Determine local I2P router status
-*[ ] Auto-install I2P router
-*[ ] Support [service_bus](https://crates.io/crates/service-bus) crate implementing Service trait
-*[ ] Control local I2P router instance lifecycle (start/stop)
+*[ ] 1.0.0 - Full SAMv1.0 Compliance
+    *[x] 0.1.0 - Minimal CLI
+        *[x] Connect with local instance
+        *[x] Lists known aliases with b32 addresses (from published personal addressbook - .i2p/eepsite/docroot/hosts.txt)
+        *[x] Find a specific destination based on an alias
+        *[x] Create minimal CLI
+    
+    *[ ] 0.2.0 - Basic I/O
+        *[ ] Send message over I2P
+        *[ ] Receive message over I2P
+    
+    *[ ] 0.3.0 - Service Bus Support
+        *[ ] Support [service_bus](https://crates.io/crates/service-bus) crate implementing Service trait
+    
+    *[ ] 0.4.0 - EEP Site Support
+        *[ ] Support requesting EEPSite pages persisting locally (started but unsure how to make request/reply using SAM interface)
+    
+    *[ ] 0.5.0 - Examples
+        *[ ] Example CLI use cases
+        *[ ] Example Service use cases
+    
+    *[ ] 0.6.0 - Fully Documented
+        *[ ] README.md completed
+        *[ ] All code documented
+        *[ ] All examples documented
+    
+    *[ ] 0.7.0 - Fully Tested and Released for Production
+    
+    *[ ] 0.8.0 - Ease of installation
+        *[ ] Determine if local I2P router installed
+        *[ ] Determine local I2P router status
+        *[ ] Auto-install I2P router
+    
+    *[ ] 0.9.0 - All SAMv1.0 features implemented and tested
+
+*[ ] 2.0.0 - Full SAMv2.0 Compliance
+
+*[ ] 3.0.0 - Full SAMv3.0 Compliance
+
+*[ ] 3.1.0 - Full SAMv3.1 Compliance
+
+*[ ] 3.2.0 - Full SAMv3.2 Compliance
+    *[ ] Ping/Pong (Code implemented; waiting on SAM 3.2 support)
 
 [Crates.io](https://crates.io/crates/i2p_client)
 

@@ -11,39 +11,41 @@ use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
 fn main() {
     simple_logger::init().unwrap();
     let m = App::new("I2P_Client")
-        .about("A SAMv3 I2P client for the local I2P router instance.")
-        .version("0.0.22")
+        .about("A SAM I2P client for the local I2P router instance. Not compliant with any version yet.")
+        .version("0.1.0")
         .author("Brian Taylor <brian@resolvingarchitecture.io>")
         .setting(AppSettings::ArgRequiredElseHelp)
+        .setting(AppSettings::ColoredHelp)
+        .setting(AppSettings::ColorAlways)
         .arg(
             Arg::with_name("alias")
-                .help("Provides an alias when establishing sessions")
+                .help("Provides an alias when establishing sessions. If not provided, will use 'Anon' by default.")
                 .short("a")
                 .long("alias")
                 .takes_value(true),
         )
         .arg(
             Arg::with_name("local")
-                .help("use local keys [true|false]")
+                .help("use local keys [true|false]; true by default; when true, it will use an internally saved keyset with provided alias if provided or 'Anon' if not - when set to false, it uses whatever the I2P router provides")
                 .short("l")
                 .long("local")
                 .takes_value(true),
         )
-        .subcommand(
-            SubCommand::with_name("ping")
-                .help("ping/pong to verify connection to I2P router - not active until 3.2")
-                .arg(
-                    Arg::with_name("message")
-                        .help("message to send as string")
-                        .short("m")
-                        .long("msg")
-                        .required(true)
-                        .takes_value(true),
-                )
-        )
+        // .subcommand(
+        //     SubCommand::with_name("ping")
+        //         .help("ping/pong to verify connection to I2P router - not active until SAMv3.2 supported")
+        //         .arg(
+        //             Arg::with_name("message")
+        //                 .help("message to send as string")
+        //                 .short("m")
+        //                 .long("msg")
+        //                 .required(true)
+        //                 .takes_value(true),
+        //         )
+        // )
         .subcommand(
             SubCommand::with_name("send")
-                .help("send message - untested")
+                .help("send message - untested; max message size=31,744 bytes, recommended size is <11KB")
                 .arg(
                     Arg::with_name("to")
                         .help("b32 address")
@@ -79,7 +81,7 @@ fn main() {
         .subcommand(
             SubCommand::with_name("aliases")
                 .help("list aliases")
-        )
+        )25
         .subcommand(
             SubCommand::with_name("dest")
                 .help("find a specific destination using nickname (alias/domain)")
@@ -92,26 +94,26 @@ fn main() {
                         .takes_value(true),
                 )
         )
-        .subcommand(
-            SubCommand::with_name("site")
-                .help("retrieve eepsite and save to local specified directory")
-                .arg(
-                    Arg::with_name("host")
-                        .help("host name, e.g. 1m5.i2p")
-                        .short("h")
-                        .long("host")
-                        .required(true)
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("directory")
-                        .help("directory to save to")
-                        .short("d")
-                        .long("dir")
-                        .required(true)
-                        .takes_value(true),
-                )
-        )
+        // .subcommand(
+        //     SubCommand::with_name("site")
+        //         .help("retrieve eepsite and save to local specified directory")
+        //         .arg(
+        //             Arg::with_name("host")
+        //                 .help("host name, e.g. 1m5.i2p")
+        //                 .short("h")
+        //                 .long("host")
+        //                 .required(true)
+        //                 .takes_value(true),
+        //         )
+        //         .arg(
+        //             Arg::with_name("directory")
+        //                 .help("directory to save to")
+        //                 .short("d")
+        //                 .long("dir")
+        //                 .required(true)
+        //                 .takes_value(true),
+        //         )
+        // )
         .get_matches();
 
     let mut alias = String::from("Anon"); // default
