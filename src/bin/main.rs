@@ -43,41 +43,41 @@ fn main() {
         //                 .takes_value(true),
         //         )
         // )
-        .subcommand(
-            SubCommand::with_name("send")
-                .help("send message - untested; max message size=31,744 bytes, recommended size is <11KB")
-                .arg(
-                    Arg::with_name("to")
-                        .help("b32 address")
-                        .short("t")
-                        .long("to")
-                        .required(true)
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("message")
-                        .help("message to send as string - required, max size=31,744 bytes, recommended size is <11KB")
-                        .short("m")
-                        .long("msg")
-                        .min_values(1)
-                        .max_values(31_744)
-                        .required(true)
-                        .takes_value(true),
-                )
-        )
-        .subcommand(
-            SubCommand::with_name("receive")
-                .help("receive messages - untested")
-                .arg(
-                    Arg::with_name("wait")
-                        .help("max time in seconds to wait. default is 0. 255 is max. Not yet working - blocks indefinitely.")
-                        .short("w")
-                        .long("wait")
-                        .takes_value(true)
-                        .min_values(0)
-                        .max_values(255),
-                )
-        )
+        // .subcommand(
+        //     SubCommand::with_name("send")
+        //         .help("send message - untested; max message size=31,744 bytes, recommended size is <11KB")
+        //         .arg(
+        //             Arg::with_name("to")
+        //                 .help("b32 address")
+        //                 .short("t")
+        //                 .long("to")
+        //                 .required(true)
+        //                 .takes_value(true),
+        //         )
+        //         .arg(
+        //             Arg::with_name("message")
+        //                 .help("message to send as string - required, max size=31,744 bytes, recommended size is <11KB")
+        //                 .short("m")
+        //                 .long("msg")
+        //                 .min_values(1)
+        //                 .max_values(31_744)
+        //                 .required(true)
+        //                 .takes_value(true),
+        //         )
+        // )
+        // .subcommand(
+        //     SubCommand::with_name("receive")
+        //         .help("receive messages - untested")
+        //         .arg(
+        //             Arg::with_name("wait")
+        //                 .help("max time in seconds to wait. default is 0. 255 is max. Not yet working - blocks indefinitely.")
+        //                 .short("w")
+        //                 .long("wait")
+        //                 .takes_value(true)
+        //                 .min_values(0)
+        //                 .max_values(255),
+        //         )
+        // )
         .subcommand(
             SubCommand::with_name("aliases")
                 .help("list aliases")
