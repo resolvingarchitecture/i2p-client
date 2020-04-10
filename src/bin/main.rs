@@ -81,7 +81,7 @@ fn main() {
         .subcommand(
             SubCommand::with_name("aliases")
                 .help("list aliases")
-        )25
+        )
         .subcommand(
             SubCommand::with_name("dest")
                 .help("find a specific destination using nickname (alias/domain)")
