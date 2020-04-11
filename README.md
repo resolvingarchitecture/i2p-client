@@ -49,6 +49,10 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
 
 [I2P-RS version](https://github.com/i2p/i2p-rs) use attempted but not fully working as of 1st Qtr 2020.
 
+Please read version notes on I2P SAM:
+
+[v1](https://geti2p.net/en/docs/api/sam), [v2](https://geti2p.net/en/docs/api/samv2), [v3](https://geti2p.net/en/docs/api/samv3)
+
 ## Goals
 
 *[ ] 1.0.0 - Full SAMv1.0 Compliance
@@ -68,11 +72,12 @@ Request BTC/XMR/ZEC address for a donation at brian@resolvingarchitecture.io.
     *[ ] 0.4.0 - EEP Site Support
         *[ ] Support requesting EEPSite pages persisting locally (started but unsure how to make request/reply using SAM interface)
     
-    *[ ] 0.5.0 - Examples
+    *[ ] 0.5.0 - Router Control
+        *[ ] [I2P Control](https://geti2p.net/en/docs/api/i2pcontrol) integration
+    
+    *[ ] 0.6.0 - Examples and Documentation
         *[ ] Example CLI use cases
         *[ ] Example Service use cases
-    
-    *[ ] 0.6.0 - Fully Documented
         *[ ] README.md completed
         *[ ] All code documented
         *[ ] All examples documented
