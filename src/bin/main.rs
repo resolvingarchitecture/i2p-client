@@ -1,18 +1,18 @@
 extern crate clap;
 extern crate dirs;
-#[macro_use]
 extern crate log;
 extern crate simple_logger;
 
-use clap::{App, Arg, SubCommand, AppSettings};
+use clap::{crate_version, App, Arg, SubCommand, AppSettings};
 use i2p_client::I2PClient;
 use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
+use std::process::exit;
 
 fn main() {
     simple_logger::init().unwrap();
-    let m = App::new("I2P_Client")
+    let m = App::new("i2p")
         .about("A SAM I2P client for the local I2P router instance. Not compliant with any version yet.")
-        .version("0.1.0")
+        .version(crate_version!())
         .author("Brian Taylor <brian@resolvingarchitecture.io>")
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::ColoredHelp)
@@ -22,7 +22,26 @@ fn main() {
                 .help("Provides an alias when establishing sessions. If not provided, will use 'Anon' by default.")
                 .short("a")
                 .long("alias")
-                .takes_value(true),
+                .takes_value(true)
+        )
+        .arg(
+            Arg::with_name("min_version")
+                .help("Minimum SAM version")
+                .long("min")
+                .takes_value(true)
+        )
+        .arg(
+            Arg::with_name("max_version")
+                .help("Maximum SAM version")
+                .long("max")
+                .takes_value(true)
+        )
+        .arg(
+            Arg::with_name("max_connection_attempts")
+                .help("Maximum attempts to make a connection before failure is accepted. Each failed attempt results in waiting 3 seconds prior to making another attempt.")
+                .short("c")
+                .long("max_connection_attempts")
+                .takes_value(true)
         )
         .arg(
             Arg::with_name("local")
@@ -31,69 +50,54 @@ fn main() {
                 .long("local")
                 .takes_value(true),
         )
+        .subcommand(
+            App::new("send")
+                .about("send message - untested; max message size=31,744 bytes, recommended size is <11KB")
+                .args(&[
+                    Arg::with_name("to")
+                        .help("b32 address")
+                        .long("to")
+                        .required(true)
+                        .takes_value(true),
+                    Arg::with_name("message")
+                        .help("message to send as string - required, max size=31,744 bytes, recommended size is <11KB")
+                        .long("message")
+                        .required(true)
+                        .takes_value(true),
+                ])
+        )
+        .subcommand(
+            App::new("receive")
+                .about("receive messages - untested")
+        )
+        .subcommand(
+            App::new("aliases")
+                .about("list aliases")
+        )
+        .subcommand(
+            App::new("dest")
+                .about("find a specific destination using nickname (alias/domain)")
+                .arg(
+                    Arg::with_name("dest_alias")
+                        .help("alias for destination search")
+                        .short("da")
+                        .long("dest_alias")
+                        .required(true)
+                        .takes_value(true),
+                )
+        )
         // .subcommand(
         //     SubCommand::with_name("ping")
         //         .help("ping/pong to verify connection to I2P router - not active until SAMv3.2 supported")
         //         .arg(
         //             Arg::with_name("message")
         //                 .help("message to send as string")
-        //                 .short("m")
-        //                 .long("msg")
+        //                 .short("msg")
+        //                 .long("message")
         //                 .required(true)
         //                 .takes_value(true),
         //         )
         // )
-        // .subcommand(
-        //     SubCommand::with_name("send")
-        //         .help("send message - untested; max message size=31,744 bytes, recommended size is <11KB")
-        //         .arg(
-        //             Arg::with_name("to")
-        //                 .help("b32 address")
-        //                 .short("t")
-        //                 .long("to")
-        //                 .required(true)
-        //                 .takes_value(true),
-        //         )
-        //         .arg(
-        //             Arg::with_name("message")
-        //                 .help("message to send as string - required, max size=31,744 bytes, recommended size is <11KB")
-        //                 .short("m")
-        //                 .long("msg")
-        //                 .min_values(1)
-        //                 .max_values(31_744)
-        //                 .required(true)
-        //                 .takes_value(true),
-        //         )
-        // )
-        // .subcommand(
-        //     SubCommand::with_name("receive")
-        //         .help("receive messages - untested")
-        //         .arg(
-        //             Arg::with_name("wait")
-        //                 .help("max time in seconds to wait. default is 0. 255 is max. Not yet working - blocks indefinitely.")
-        //                 .short("w")
-        //                 .long("wait")
-        //                 .takes_value(true)
-        //                 .min_values(0)
-        //                 .max_values(255),
-        //         )
-        // )
-        .subcommand(
-            SubCommand::with_name("aliases")
-                .help("list aliases")
-        )
-        .subcommand(
-            SubCommand::with_name("dest")
-                .help("find a specific destination using nickname (alias/domain)")
-                .arg(
-                    Arg::with_name("nick")
-                        .help("alias for search")
-                        .short("n")
-                        .long("nick")
-                        .required(true)
-                        .takes_value(true),
-                )
-        )
         // .subcommand(
         //     SubCommand::with_name("site")
         //         .help("retrieve eepsite and save to local specified directory")
@@ -116,51 +120,79 @@ fn main() {
         // )
         .get_matches();
 
+    let local = true; // default
+    // if m.value_of("local").is_some() {
+    //     local = m.value_of("local").unwrap().eq("true");
+    // }
     let mut alias = String::from("Anon"); // default
     if m.value_of("alias").is_some() {
         alias = String::from(m.value_of("alias").unwrap());
     }
-
-    let mut local = true; // default
-    if m.value_of("local").is_some() {
-        local = m.value_of("local").unwrap().eq("true");
+    let mut min_version = "3.0"; // default
+    if m.value_of("min_version").is_some() {
+        min_version = m.value_of("min_version").unwrap();
+    }
+    let mut max_version = "3.1"; // default
+    if m.value_of("max_version").is_some() {
+        max_version = m.value_of("max_version").unwrap();
+    }
+    let mut max_connection_attempts: u8 = 3; // default
+    if m.value_of("max_connection_attempts").is_some() {
+        max_connection_attempts = m.value_of("max_connection_attempts").unwrap().parse().unwrap();
     }
 
     match m.subcommand_name() {
-        Some("ping") => {
-            let mut msg = "keep-alive";
-            if m.value_of("message").is_some() {
-                msg = m.value_of("message").unwrap();
-            }
-            ping(msg);
-        },
-        Some("send") => {
-            send(local, alias, String::from(m.value_of("to").unwrap()), String::from(m.value_of("msg").unwrap()));
-        },
-        Some("receive") => {
-            let mut wait: u8 = 0; // default
-            if m.value_of("wait").is_some() {
-                wait = m.value_of("wait").unwrap().parse().unwrap_or(0)
-            }
-            receive(local, alias, wait);
-        },
         Some("aliases") => {
             aliases();
         },
         Some("dest") => {
-            if m.value_of("nick").is_some() {
-                let nick = m.value_of("nick").unwrap();
-                println!("dest nick: {}",nick);
-                dest(nick);
-            }
+            dest(m.subcommand().1.unwrap().value_of("dest_alias").unwrap());
         },
-        Some("site") => {
-            if m.value_of("host").is_some() && m.value_of("directory").is_some() {
-                let host = m.value_of("host").unwrap();
-                let dir = m.value_of("directory").unwrap();
-                site(host, dir);
-            }
+        Some("send") => {
+            let am = m.subcommand().1.unwrap();
+            send(
+                String::from(am.value_of("to").unwrap()),
+                String::from(am.value_of("message").unwrap()),
+                local,
+                alias,
+                min_version,
+                max_version,
+                max_connection_attempts);
         },
+        Some("receive") => {
+            receive(
+                local,
+                    alias,
+                    min_version,
+                    max_version,
+                    max_connection_attempts);
+        },
+        // Some("ping") => {
+        //     let mut msg = "keep-alive";
+        //     if m.value_of("message").is_some() {
+        //         msg = m.value_of("message").unwrap();
+        //     }
+        //     ping(
+        //         msg,
+        //          local,
+        //          alias,
+        //          min_version,
+        //          max_version,
+        //          max_connection_attempts);
+        // },
+        // Some("site") => {
+        //     if m.value_of("host").is_some() && m.value_of("directory").is_some() {
+        //         let host = m.value_of("host").unwrap();
+        //         let dir = m.value_of("directory").unwrap();
+        //         site(host,
+        //              dir,
+        //              local,
+        //              alias,
+        //              min_version,
+        //              max_version,
+        //              max_connection_attempts);
+        //     }
+        // },
         None => {
             println!("No subcommand was used")
         },
@@ -200,15 +232,6 @@ fn main() {
     // client_alice.shutdown();
 }
 
-fn ping(msg: &str) {
-    let mut client = I2PClient::new(true, String::from("Anon"));
-
-    match client.ping(msg) {
-        Some(s) => println!("Pong response: {}",s),
-        None => println!("No response")
-    }
-}
-
 fn dest(alias: &str) {
     println!("{}\n{}\n", alias, I2PClient::dest(alias));
 }
@@ -221,36 +244,55 @@ fn aliases() {
     }
 }
 
-fn send(use_local: bool, alias: String, to: String, message: String) {
-    let mut client = I2PClient::new(use_local, alias);
-    let env = Envelope::new(0, 0, message.into_bytes());
-    let packet = Packet::new(
-        1,
-        PacketType::Data as u8,
-        NetworkId::I2P as u8,
-        client.local_dest.clone(),
-        to,
-        Some(env));
-    println!("Sending msg...");
-    client.send(packet);
-    println!("Send successful")
+fn send(to: String, message: String, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
+    match I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts) {
+        Ok(mut client) => {
+            let env = Envelope::new(0, 0, message.into_bytes());
+            let packet = Packet::new(
+                1,
+                PacketType::Data as u8,
+                NetworkId::I2P as u8,
+                client.local_full_dest.clone(),
+                to,
+                Some(env));
+            println!("Sending msg...");
+            client.send(packet);
+            println!("Send successful")
+        },
+        Err(e) => println!("{}", e),
+        _ => {}
+    }
 }
 
-fn receive(use_local: bool, alias: String, wait: u8) {
-    let mut client = I2PClient::new(use_local, alias);
-    match client.receive() {
-        Ok(packet) => {
-            if packet.envelope.is_some() {
-                println!("msg received: {}", String::from_utf8(packet.envelope.unwrap().msg).unwrap().as_str());
+fn receive(use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
+    match I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts) {
+        Ok(mut client) => {
+            match client.receive() {
+                Ok(packet) => {
+                    if packet.envelope.is_some() {
+                        println!("msg received: {}", String::from_utf8(packet.envelope.unwrap().msg).unwrap().as_str());
+                    }
+                },
+                Err(e) => println!("{}", e)
             }
         },
         Err(e) => println!("{}", e)
     }
+
+
 }
 
-fn site(host: &str, dir: &str) {
-    let mut client = I2PClient::new(true, String::from("Anon"));
+// fn ping(msg: &str, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
+//     let mut client = I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts);
+//     match client.ping(msg) {
+//         Some(s) => println!("Pong response: {}",s),
+//         None => println!("No response")
+//     }
+// }
+
+// fn site(host: &str, dir: &str, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
+    // let mut client = I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts);
     // match client.site(host) {
     //
     // }
-}
+// }

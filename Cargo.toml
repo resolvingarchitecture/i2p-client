@@ -1,6 +1,6 @@
 [package]
 name = "i2p_client"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Brian Taylor <brian@resolvingarchitecture.io>"]
 license-file = "LICENSE"
 edition = "2018"
@@ -21,7 +21,7 @@ simple_logger = "1.6.0"
 nom = "^2.2"
 dirs = "2.0.2"
 base64 = "0.12.0"
-clap = {version = "2.33.0", features = ["yaml"]}
+clap = "2.33.0"
 
 ra_common = "0.1.3"
 

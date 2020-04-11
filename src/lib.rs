@@ -11,6 +11,7 @@ use log::{debug,info,warn};
 
 use std::clone::Clone;
 use std::collections::HashMap;
+use std::convert::{TryFrom};
 use std::io;
 use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read};
 use std::path::{Path};
@@ -25,15 +26,13 @@ use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
 use ra_common::utils::wait::wait_a_sec;
 
 static DEFAULT_API: &'static str = "127.0.0.1:7656";
-// static DEFAULT_UDP_API: &'static str = "127.0.0.1:7655";
+static DEFAULT_UDP_API: &'static str = "127.0.0.1:7655";
 
 static I2P_PID: &'static str = "i2p.pid";
 static I2P_STATUS: &'static str = "i2p.status";
 static I2P_ADDR_BK: &'static str = "eepsite/docroot/hosts.txt";
 
-static SAM_MIN: &'static str = "3.0";
-static SAM_MAX: &'static str = "3.1";
-
+#[derive(Debug, Copy, Clone)]
 pub enum SigType {
     /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
     EdDsaSha512Ed25519,
@@ -51,39 +50,6 @@ impl SigType {
             SigType::EdDsaSha512Ed25519 => "EDDSA_SHA512_ED25519",
             SigType::EdDsaSha512Ed25519ph => "EDDSA_SHA512_ED25519PH",
             SigType::RedDsaSha512Ed25519 => "REDDSA_SHA512_ED25519",
-        }
-    }
-}
-
-pub enum SessionStyle {
-    Datagram,
-    Raw,
-    Stream,
-}
-
-pub struct SamConnection {
-    conn: TcpStream,
-}
-
-pub struct Session {
-    sam: SamConnection,
-    local_dest: String,
-}
-
-pub struct StreamConnect {
-    sam: SamConnection,
-    session: Session,
-    peer_dest: String,
-    peer_port: u16,
-    local_port: u16,
-}
-
-impl SessionStyle {
-    fn string(&self) -> &str {
-        match *self {
-            SessionStyle::Datagram => "DATAGRAM",
-            SessionStyle::Raw => "RAW",
-            SessionStyle::Stream => "STREAM",
         }
     }
 }
@@ -124,6 +90,15 @@ fn verify_response<'a>(vec: &'a [(&str, &str)]) -> Result<HashMap<&'a str, &'a s
     }
 }
 
+pub struct SamConnection {
+    last_send_id: u8,
+    last_receive_id: u8,
+    conn: TcpStream,
+    min_version: String,
+    max_version: String,
+    current_version: String
+}
+
 impl SamConnection {
     fn send<F>(&mut self, msg: String, reply_parser: F) -> Result<HashMap<String, String>, Error>
         where
@@ -139,8 +114,6 @@ impl SamConnection {
 
         let response = reply_parser(&buffer);
         let vec = response.unwrap();
-        let vec_cmd = vec.0;
-        debug!("vec_cmd: {}",vec_cmd);
         let vec_opts = vec.1;
         verify_response(&vec_opts).map(|m| {
             m.iter()
@@ -149,8 +122,13 @@ impl SamConnection {
         })
     }
 
+    fn send_async(&mut self, msg: String) {
+        debug!("-> {}", &msg);
+        self.conn.write_all(&msg.into_bytes());
+    }
+
     fn handshake(&mut self) -> Result<HashMap<String, String>, Error> {
-        let hello_msg = format!("HELLO VERSION MIN={} MAX={} \n", SAM_MIN, SAM_MAX);
+        let hello_msg = format!("HELLO VERSION MIN={} MAX={} \n", self.min_version, self.max_version);
         self.send(hello_msg, sam_hello)
     }
 
@@ -163,7 +141,9 @@ impl SamConnection {
         reader.read_to_string(&mut buffer)?;
         debug!("<- {}", &buffer);
         let received = received_parser(&buffer);
-        let vec_opts = received.unwrap().1;
+        let vec = received.unwrap();
+        let vec_str = vec.0;
+        let vec_opts = vec.1;
         verify_received(&vec_opts).map(|m| {
             m.iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -171,11 +151,31 @@ impl SamConnection {
         })
     }
 
-    pub fn connect<A: ToSocketAddrs>(addr: A) -> Result<SamConnection, Error> {
+    pub fn connect<A: ToSocketAddrs>(addr: A, min_version: &str, max_version: &str) -> Result<SamConnection, Error> {
         let tcp_stream = TcpStream::connect(addr)?;
-        let mut socket = SamConnection { conn: tcp_stream };
-        socket.handshake()?;
-        Ok(socket)
+        let mut conn = SamConnection {
+            last_send_id: 0,
+            last_receive_id: 0,
+            conn: tcp_stream ,
+            min_version: String::from(min_version),
+            max_version: String::from(max_version),
+            current_version: String::from("3.0")
+        };
+        match conn.handshake() {
+            Ok(m) => {
+                if !m["VERSION"].is_empty() {
+                    conn.current_version = m["VERSION"].clone();
+                }
+                if m["RESULT"].eq("NOVERSION") {
+                    return Err(Error::new(ErrorKind::InvalidInput, "No version"));
+                }
+                if m["RESULT"].eq("I2P_ERROR") {
+                    return Err(Error::new(ErrorKind::ConnectionRefused, m["MESSAGE"].clone()));
+                }
+                return Ok(conn)
+            },
+            Err(e) => return Err(e)
+        }
     }
 
     pub fn naming_lookup(&mut self, name: &str) -> Result<String, Error> {
@@ -191,22 +191,28 @@ impl SamConnection {
     }
 
     pub fn duplicate(&self) -> io::Result<SamConnection> {
-        self.conn.try_clone().map(|s| SamConnection { conn: s })
+        self.conn.try_clone().map(|s| SamConnection {
+            last_send_id: self.last_send_id,
+            last_receive_id: self.last_receive_id,
+            conn: s,
+            min_version: self.min_version.clone(),
+            max_version: self.max_version.clone(),
+            current_version: self.current_version.clone() })
     }
 
     /// Ping request to peer based on established session
-    pub fn ping(&mut self, msg: &str) -> Option<String> {
-        match self.send(format!("PING {}", msg), pong_received) {
-            Ok(ret) => {
-                if ret["PONG"].is_empty() {
-                    Some(String::from("Response with no msg"))
-                } else {
-                    Some(ret["PONG"].clone())
-                }
-            },
-            Err(e) => Some(e.to_string())
-        }
-    }
+    // pub fn ping(&mut self, msg: &str) -> Option<String> {
+    //     match self.send(format!("PING {}", msg), pong_received) {
+    //         Ok(ret) => {
+    //             if ret["PONG"].is_empty() {
+    //                 Some(String::from("Response with no msg"))
+    //             } else {
+    //                 Some(ret["PONG"].clone())
+    //             }
+    //         },
+    //         Err(e) => Some(e.to_string())
+    //     }
+    // }
 
     // pub fn site(&mut self, host_dest: &str) -> Result<Vec<u8>, Error> {
     //     let local_dest = "";
@@ -231,30 +237,84 @@ impl SamConnection {
     //         Some(env)))
     // }
 
-    pub fn send_packet(&mut self, packet: Packet) {
+    pub fn send_packet(&mut self, mut packet: Packet) {
         if packet.envelope.is_some() {
+            if self.last_send_id == 255 {
+                self.last_send_id = 0;
+            }
+            self.last_send_id += 1;
+            packet.id = self.last_send_id;
             let env = packet.envelope.unwrap();
             let enc_msg = base64::encode(env.msg);
-            let send_env_msg = format!("DATAGRAM SEND FROM={} DESTINATION={} SIZE={} MSG={} \n",
-                                       packet.from_addr, packet.to_addr, enc_msg.len(), enc_msg.as_str());
-            info!("Sending packet...");
-            self.send(send_env_msg, datagram_received).unwrap();
+            let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={}\n{}",
+                                       packet.to_addr, enc_msg.len(), enc_msg.as_str());
+            if send_env_msg.len() > 31_500 {
+                warn!("Message length is greater than 31.5KB; recommended to stay below this and ideally less than 11KB.")
+            } else if send_env_msg.len() > 61_500 {
+                warn!("Unable to send messages greater than 61.5KB (tunnel limit). Rejecting.");
+                return;
+            }
+            info!("Sending packet (size={})...",send_env_msg.len());
+            self.send_async(send_env_msg);
+            info!("Packet sent.");
         }
     }
 
     pub fn recv_packet(&mut self) -> Result<Packet, Error> {
         info!("Waiting on packet...");
-        let ret = self.receive(datagram_send)?;
-        let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
+        let res = self.receive(datagram_received);
+        let ret = res.unwrap();
+        // let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
+        let dec_msg = base64::decode(String::from("temp").into_bytes()).unwrap();
         let env = Envelope::new(0, 0, dec_msg);
+        if self.last_receive_id == 255 {
+            self.last_receive_id = 0;
+        }
+        self.last_receive_id += 1;
         Ok(Packet::new(
-            0,
+            self.last_receive_id,
             PacketType::Data as u8,
             NetworkId::I2P as u8,
-            ret["FROM"].clone(),
             ret["DESTINATION"].clone(),
+            String::new(),
             Some(env)))
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum SessionStyle {
+    Datagram,
+    Raw,
+    Stream,
+}
+
+impl SessionStyle {
+    fn string(&self) -> &str {
+        match *self {
+            SessionStyle::Datagram => "DATAGRAM",
+            SessionStyle::Raw => "RAW",
+            SessionStyle::Stream => "STREAM",
+        }
+    }
+}
+
+impl TryFrom<&str> for SessionStyle {
+    type Error = ();
+    fn try_from(original: &str) -> Result<Self, Self::Error> {
+        match original {
+            "DATAGRAM" => Ok(SessionStyle::Datagram),
+            "RAW" => Ok(SessionStyle::Raw),
+            "STREAM" => Ok(SessionStyle::Stream),
+            n => Err(())
+        }
+    }
+}
+
+pub struct Session {
+    sam: SamConnection,
+    local_full_dest: String,
+    local_dest: String,
+    style: SessionStyle
 }
 
 impl Session {
@@ -263,13 +323,17 @@ impl Session {
         destination: &str,
         nickname: &str,
         style: SessionStyle,
+        min_version: &str,
+        max_version: &str,
     ) -> Result<Session, Error> {
-        let mut sam = SamConnection::connect(sam_addr).unwrap();
+        let mut sam = SamConnection::connect(sam_addr, min_version, max_version)?;
         let create_session_msg = format!("SESSION CREATE STYLE={} ID={} DESTINATION={} \n", style.string(), nickname, destination);
         let ret = sam.send(create_session_msg, sam_session_status)?;
-        let local_dest = ret["DESTINATION"].clone();
-        // let local_dest = sam.naming_lookup("ME")?;
-        Ok(Session { sam, local_dest })
+        let local_full_dest = ret["DESTINATION"].clone();
+        info!("local_full_dest (size={}): {}",local_full_dest.len(),local_full_dest);
+        let local_dest = sam.naming_lookup("ME")?;
+        info!("local_dest (size={}): {}",local_dest.len(),local_dest);
+        Ok(Session { sam, local_full_dest, local_dest, style })
     }
 
     pub fn sam_api(&self) -> io::Result<SocketAddr> {
@@ -281,9 +345,11 @@ impl Session {
     }
 
     pub fn duplicate(&self) -> io::Result<Session> {
-        self.sam.duplicate().map(|s| Session {
+        self.sam.duplicate().map( |s | Session {
             sam: s,
+            local_full_dest: self.local_full_dest.clone(),
             local_dest: self.local_dest.clone(),
+            style: SessionStyle::try_from(self.style.string()).unwrap()
         })
     }
 
@@ -295,18 +361,25 @@ impl Session {
         self.sam.recv_packet()
     }
 
-    pub fn ping(&mut self, msg: &str) -> Option<String> {
-        self.sam.ping(msg)
-    }
+    // pub fn ping(&mut self, msg: &str) -> Option<String> {
+    //     self.sam.ping(msg)
+    // }
 
-    pub fn site(&mut self, host_dest: &str) -> Result<Vec<u8>, Error> {
-        unimplemented!()
-        // self.sam.site(host_dest)
-    }
+    // pub fn site(&mut self, host_dest: &str) -> Result<Vec<u8>, Error> {
+    //     self.sam.site(host_dest)
+    // }
 
     pub fn close(&mut self) {
         self.sam.conn.shutdown(Shutdown::Both).unwrap();
     }
+}
+
+pub struct StreamConnect {
+    sam: SamConnection,
+    session: Session,
+    peer_dest: String,
+    peer_port: u16,
+    local_port: u16,
 }
 
 impl StreamConnect {
@@ -315,9 +388,11 @@ impl StreamConnect {
         destination: &str,
         port: u16,
         nickname: &str,
+        min_version: &str,
+        max_version: &str,
     ) -> io::Result<StreamConnect> {
-        let mut session = Session::create(sam_addr, "TRANSIENT", nickname, SessionStyle::Stream)?;
-        let mut sam = SamConnection::connect(session.sam_api()?).unwrap();
+        let mut session = Session::create(sam_addr, "TRANSIENT", nickname, SessionStyle::Stream, min_version, max_version)?;
+        let mut sam = SamConnection::connect(session.sam_api()?, min_version, max_version).unwrap();
         let create_stream_msg = format!("STREAM CONNECT ID={} DESTINATION={} SILENT=false TO_PORT={}\n", nickname, destination, port);
         sam.send(create_stream_msg, sam_stream_status)?;
         let peer_dest = session.naming_lookup(destination)?;
@@ -329,7 +404,7 @@ impl StreamConnect {
     }
 
     pub fn local_addr(&self) -> io::Result<(String, u16)> {
-        Ok((self.session.local_dest.clone(), self.local_port))
+        Ok((self.session.local_full_dest.clone(), self.local_port))
     }
 
     pub fn shutdown(&self, how: Shutdown) -> io::Result<()> {
@@ -368,12 +443,15 @@ pub enum ClientType {
 }
 
 pub struct I2PClient {
+    /// Destination used for establishing a Session (884 bytes): destination + priv key + signing key
+    pub local_full_dest: String,
+    /// Destination used for sending a Datagram (516 bytes): destination
     pub local_dest: String,
     session: Session
 }
 
 impl I2PClient {
-    pub fn new(use_local: bool, alias: String) -> I2PClient {
+    pub fn new(use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) -> Result<I2PClient, Error> {
         info!("{}", "Initializing I2P Client...");
         // Build paths
         let home = dirs::home_dir().unwrap();
@@ -395,7 +473,8 @@ impl I2PClient {
         i2p_local_dest_file.push(alias.clone());
         let i2p_local_dest_path = i2p_local_dest_file.to_str().unwrap();
 
-        let mut dest = String::new();
+        let mut local_full_dest = String::new();
+        let mut local_dest = String::new();
         let mut local_addr_loaded = false;
 
         if use_local {
@@ -403,11 +482,11 @@ impl I2PClient {
 
             if Path::new(i2p_local_dest_path).exists() {
                 let mut i2p_local_dest_file = File::open(Path::new(i2p_local_dest_path)).unwrap();
-                match i2p_local_dest_file.read_to_string(&mut dest) {
+                match i2p_local_dest_file.read_to_string(&mut local_full_dest) {
                     Ok(len) => {
                         if len > 0 {
                             local_addr_loaded = true;
-                            info!("dest from file ({}): {}", len, &dest);
+                            info!("dest from file ({}): {}", len, &local_full_dest);
                         } else {
                             info!("{}","dest file empty");
                         }
@@ -416,21 +495,25 @@ impl I2PClient {
                 }
             }
         }
-        if dest.is_empty() {
+        if local_full_dest.is_empty() {
             // Establish Session, write to local_dest, and set dest
             match Session::create(DEFAULT_API,
                                   "TRANSIENT",
                                   alias.as_str(),
-                                  SessionStyle::Datagram) {
+                                  SessionStyle::Datagram,
+                                  min_version,
+                                  max_version,
+            ) {
                 Ok(session) => {
-                    info!("IP: {}, Dest: {}",session.sam_api().unwrap().ip().to_string(), session.local_dest.clone());
-                    dest = session.local_dest;
+                    info!("IP: {}, Dest: {}",session.sam_api().unwrap().ip().to_string(), session.local_full_dest.clone());
+                    local_full_dest = session.local_full_dest;
+                    local_dest = session.local_dest;
                     if use_local && !local_addr_loaded {
                         info!("Saving dest to file: {}",i2p_local_dest_path);
                         match File::create(i2p_local_dest_path) {
                             Ok(f) => {
                                 let mut d_file = f;
-                                d_file.write_all(dest.clone().as_bytes()).unwrap();
+                                d_file.write_all(local_full_dest.clone().as_bytes()).unwrap();
                             },
                             Err(e) => warn!("{}",e)
                         }
@@ -442,22 +525,29 @@ impl I2PClient {
             }
         }
 
+        let mut attempts: u8 = 0;
         loop {
             info!("{}","Trying to create session...");
             let res = Session::create(DEFAULT_API,
-                                      &dest.as_str(),
+                                      &local_full_dest.as_str(),
                                       &alias.as_str(),
-                                      SessionStyle::Datagram);
+                                      SessionStyle::Datagram,
+                                      min_version,
+                                      max_version);
             if res.is_ok() {
                 info!("{}", "I2P Client initialized.");
-                return I2PClient {
-                    local_dest: dest,
+                return Ok(I2PClient {
+                    local_full_dest,
+                    local_dest,
                     session: res.unwrap()
-                }
-            } else {
-                warn!("Unable to create Session ({})...waiting a few seconds...", res.err().unwrap());
-                wait_a_sec(3)
+                })
             }
+            attempts += 1;
+            if attempts == max_connection_attempts {
+                return Err(Error::new(ErrorKind::ConnectionRefused, format!("Unable to connect: max attempts ({}) reached", max_connection_attempts)))
+            }
+            warn!("Unable to create Session ({})...waiting a few seconds...", res.err().unwrap());
+            wait_a_sec(3)
         }
     }
 
@@ -516,15 +606,15 @@ impl I2PClient {
         self.session.recv_packet()
     }
 
-    pub fn ping(&mut self, msg: &str) -> Option<String> {
-        self.session.ping(msg)
-    }
+    // pub fn ping(&mut self, msg: &str) -> Option<String> {
+    //     self.session.ping(msg)
+    // }
 
-    pub fn site(&mut self, host: &str) -> Result<Vec<u8>, Error> {
-        let host_dest = I2PClient::dest(host);
-        info!("Sending request for site: {}", &host_dest);
-        self.session.site(host_dest.as_str())
-    }
+    // pub fn site(&mut self, host: &str) -> Result<Vec<u8>, Error> {
+    //     let host_dest = I2PClient::dest(host);
+    //     info!("Sending request for site: {}", &host_dest);
+    //     self.session.site(host_dest.as_str())
+    // }
 
     // pub fn shutdown(&mut self) {
     //     if self.session.is_some() {
@@ -533,12 +623,11 @@ impl I2PClient {
     // }
 }
 
-impl Service for I2PClient {
-    fn operate(&mut self, operation: u8, env: Envelope) {
-        unimplemented!()
+// impl Service for I2PClient {
+//     fn operate(&mut self, operation: u8, env: Envelope) {
         // let mut packet = Packet::new(1, PacketType::Data as u8, NetworkId::I2P as u8, env.)
-    }
-}
+    // }
+// }
 
 #[cfg(test)]
 mod tests {
