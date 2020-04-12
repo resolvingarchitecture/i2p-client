@@ -26,7 +26,7 @@ use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
 use ra_common::utils::wait::wait_a_sec;
 
 static DEFAULT_API: &'static str = "127.0.0.1:7656";
-static DEFAULT_UDP_API: &'static str = "127.0.0.1:7655";
+// static DEFAULT_UDP_API: &'static str = "127.0.0.1:7655";
 
 static I2P_PID: &'static str = "i2p.pid";
 static I2P_STATUS: &'static str = "i2p.status";
@@ -135,7 +135,10 @@ impl SamConnection {
 
     fn send_async(&mut self, msg: String) {
         debug!("-> {}", &msg);
-        self.conn.write_all(&msg.into_bytes());
+        match self.conn.write_all(&msg.into_bytes()) {
+            Ok(m) => debug!("{}", "msg written to conn"),
+            Err(e) => warn!("{}", e)
+        }
     }
 
     fn handshake(&mut self) -> Result<HashMap<String, String>, Error> {
@@ -267,7 +270,7 @@ impl SamConnection {
             }
             info!("Sending packet (size={})...",send_env_msg.len());
             self.send_async(send_env_msg);
-            info!("Packet sent.");
+            info!("Packet {} sent.", packet.id);
         }
     }
 

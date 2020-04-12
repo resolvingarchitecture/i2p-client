@@ -3,11 +3,9 @@ extern crate dirs;
 extern crate log;
 extern crate simple_logger;
 
-use clap::{crate_version, App, Arg, SubCommand, AppSettings};
+use clap::{crate_version, App, Arg, AppSettings};
 use i2p_client::{I2PClient, SigType};
 use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
-use std::process::exit;
-use std::io::Error;
 
 fn main() {
     simple_logger::init().unwrap();
@@ -80,7 +78,7 @@ fn main() {
         )
         .subcommand(
             App::new("send")
-                .about("send message - untested; max message size=31,744 bytes, recommended size is <11KB")
+                .about("send message - not verified to be working; max message size=31,744 bytes, recommended size is <11KB")
                 .args(&[
                     Arg::with_name("to")
                         .help("b32 address")
@@ -88,15 +86,19 @@ fn main() {
                         .required(true)
                         .takes_value(true),
                     Arg::with_name("message")
-                        .help("message to send as string - required, max size=31,744 bytes, recommended size is <11KB")
+                        .help("message to send as string - required, max size=31.5KB, recommended size is <11KB")
                         .long("message")
                         .required(true)
+                        .takes_value(true),
+                    Arg::with_name("max_attempts")
+                        .help("maximum number of sends until an ack is received")
+                        .long("max_attempts")
                         .takes_value(true),
                 ])
         )
         .subcommand(
             App::new("receive")
-                .about("receive messages - untested")
+                .about("receive messages - not receiving messages yet")
         )
         // .subcommand(
         //     SubCommand::with_name("ping")
@@ -176,9 +178,14 @@ fn main() {
         },
         Some("send") => {
             let am = m.subcommand().1.unwrap();
+            let mut max_attempts :u8 = 1;
+            if am.value_of("max_attempts").is_some() {
+                max_attempts = am.value_of("max_attempts").unwrap().parse().unwrap();
+            }
             send(
                 String::from(am.value_of("to").unwrap()),
                 String::from(am.value_of("message").unwrap()),
+                max_attempts,
                 local,
                 alias,
                 min_version,
@@ -290,23 +297,24 @@ fn gen(sig_type: &str, use_local: bool, alias: String, min_version: &str, max_ve
     }
 }
 
-fn send(to: String, message: String, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
+fn send(to: String, message: String, max_attempts: u8, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
     match I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts) {
         Ok(mut client) => {
-            let env = Envelope::new(0, 0, message.into_bytes());
-            let packet = Packet::new(
-                1,
-                PacketType::Data as u8,
-                NetworkId::I2P as u8,
-                client.local_full_dest.clone(),
-                to,
-                Some(env));
-            println!("Sending msg...");
-            client.send(packet);
-            println!("Send successful")
+            for i in 0..max_attempts {
+                let env = Envelope::new(0, 0, message.clone().into_bytes());
+                let packet = Packet::new(
+                    i,
+                    PacketType::Data as u8,
+                    NetworkId::I2P as u8,
+                    client.local_full_dest.clone(),
+                    to.clone(),
+                    Some(env));
+                println!("Sending msg...");
+                client.send(packet);
+                println!("Send successful")
+            }
         },
-        Err(e) => println!("{}", e),
-        _ => {}
+        Err(e) => println!("{}", e)
     }
 }
 
