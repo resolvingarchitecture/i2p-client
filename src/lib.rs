@@ -13,7 +13,7 @@ use std::clone::Clone;
 use std::collections::HashMap;
 use std::convert::{TryFrom};
 use std::io;
-use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read};
+use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read, Cursor};
 use std::path::{Path};
 use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 
@@ -150,14 +150,18 @@ impl SamConnection {
         where
             F: Fn(&str) -> IResult<&str, Vec<(&str, &str)>>,
     {
-        let mut reader = BufReader::new(&self.conn);
-        let mut buffer = String::new();
-        reader.read_to_string(&mut buffer)?;
-        debug!("<- {}", &buffer);
-        let received = received_parser(&buffer);
+        let mut reader = BufReader::new( &self.conn);
+
+        let mut header = String::new();
+        let mut body = String::new();
+        reader.read_line(&mut header)?;
+        reader.read_line(&mut body)?;
+        debug!("<- (header) {}", &header);
+
+        let received = received_parser(&header);
         let vec = received.unwrap();
-        let vec_str = vec.0;
-        let vec_opts = vec.1;
+        let mut vec_opts = vec.1;
+        vec_opts.push(("MSG", body.as_str()));
         verify_received(&vec_opts).map(|m| {
             m.iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -260,8 +264,11 @@ impl SamConnection {
             packet.id = self.last_send_id;
             let env = packet.envelope.unwrap();
             let enc_msg = base64::encode(env.msg);
-            let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={}\n{}",
-                                       packet.to_addr, enc_msg.len(), enc_msg.as_str());
+            let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={} \n{}",
+                                       packet.to_addr,
+                                       enc_msg.len(),
+                                       enc_msg.as_str()
+            );
             if send_env_msg.len() > 31_500 {
                 warn!("Message length is greater than 31.5KB; recommended to stay below this and ideally less than 11KB.")
             } else if send_env_msg.len() > 61_500 {
@@ -278,9 +285,12 @@ impl SamConnection {
         info!("Waiting on packet...");
         let res = self.receive(datagram_received);
         let ret = res.unwrap();
-        // let dec_msg = base64::decode(ret["MSG"].clone().into_bytes()).unwrap();
-        let dec_msg = base64::decode(String::from("temp").into_bytes()).unwrap();
-        let env = Envelope::new(0, 0, dec_msg);
+        let size :usize = ret["SIZE"].clone().parse().unwrap();
+        let jacked_msg = ret["MSG"].clone();
+        let enc_msg = jacked_msg.split_at(size).0;
+        let dec_msg_bytes = base64::decode(enc_msg).unwrap();
+        let dec_msg = String::from_utf8(dec_msg_bytes.clone()).unwrap();
+        let env = Envelope::new(0, 0, dec_msg_bytes);
         if self.last_receive_id == 255 {
             self.last_receive_id = 0;
         }

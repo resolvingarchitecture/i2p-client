@@ -324,7 +324,11 @@ fn receive(use_local: bool, alias: String, min_version: &str, max_version: &str,
             match client.receive() {
                 Ok(packet) => {
                     if packet.envelope.is_some() {
-                        println!("msg received: {}", String::from_utf8(packet.envelope.unwrap().msg).unwrap().as_str());
+                        let env = packet.envelope.unwrap();
+                        match String::from_utf8(env.msg) {
+                            Ok(msg) => println!("msg received: {}", msg.as_str()),
+                            Err(e) => println!("{}", e)
+                        }
                     }
                 },
                 Err(e) => println!("{}", e)
@@ -332,8 +336,6 @@ fn receive(use_local: bool, alias: String, min_version: &str, max_version: &str,
         },
         Err(e) => println!("{}", e)
     }
-
-
 }
 
 // fn ping(msg: &str, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
