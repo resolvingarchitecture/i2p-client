@@ -35,7 +35,7 @@
   <h4>
     <a href="https://resolvingarchitecture.io">Info</a>
     <span> | </span>
-    <a href="https://docs.rs/crate/i2p-client/">Docs</a>
+    <a href="https://docs.rs/crate/i2p_client/">Docs</a>
     <span> | </span>
     <a href="https://github.com/resolvingarchitecture/i2p-client/blob/master/CHANGELOG.md">Changelog</a>
   </h4>

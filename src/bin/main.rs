@@ -4,9 +4,10 @@ extern crate log;
 extern crate simple_logger;
 
 use clap::{crate_version, App, Arg, SubCommand, AppSettings};
-use i2p_client::I2PClient;
+use i2p_client::{I2PClient, SigType};
 use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
 use std::process::exit;
+use std::io::Error;
 
 fn main() {
     simple_logger::init().unwrap();
@@ -51,6 +52,33 @@ fn main() {
                 .takes_value(true),
         )
         .subcommand(
+            App::new("aliases")
+                .about("list aliases")
+        )
+        .subcommand(
+            App::new("dest")
+                .about("find a specific destination using nickname (alias/domain)")
+                .arg(
+                    Arg::with_name("dest_alias")
+                        .help("alias for destination search")
+                        .short("da")
+                        .long("dest_alias")
+                        .required(true)
+                        .takes_value(true),
+                )
+        )
+        .subcommand(
+            App::new("gen")
+                .about("generate pub/priv keys; default sig_type is: DSA_SHA1; uses sig_type if provided - values accepted:\n\tDSA_SHA1\n\tEDDSA_SHA512_ED25519\n\tEDDSA_SHA512_ED25519PH\n\tREDDSA_SHA512_ED25519")
+                .arg(
+                    Arg::with_name("sig_type")
+                        .help("Signature Type")
+                        .short("s")
+                        .long("sig_type")
+                        .takes_value(true),
+                )
+        )
+        .subcommand(
             App::new("send")
                 .about("send message - untested; max message size=31,744 bytes, recommended size is <11KB")
                 .args(&[
@@ -69,22 +97,6 @@ fn main() {
         .subcommand(
             App::new("receive")
                 .about("receive messages - untested")
-        )
-        .subcommand(
-            App::new("aliases")
-                .about("list aliases")
-        )
-        .subcommand(
-            App::new("dest")
-                .about("find a specific destination using nickname (alias/domain)")
-                .arg(
-                    Arg::with_name("dest_alias")
-                        .help("alias for destination search")
-                        .short("da")
-                        .long("dest_alias")
-                        .required(true)
-                        .takes_value(true),
-                )
         )
         // .subcommand(
         //     SubCommand::with_name("ping")
@@ -144,6 +156,20 @@ fn main() {
     match m.subcommand_name() {
         Some("aliases") => {
             aliases();
+        },
+        Some("gen") => {
+            let am = m.subcommand().1.unwrap();
+            let mut sig_type = "DSA_SHA1";
+            if am.value_of("sig_type").is_some() {
+                sig_type = am.value_of("sig_type").unwrap();
+            }
+            gen(
+                sig_type,
+                local,
+                alias,
+                min_version,
+                max_version,
+                max_connection_attempts);
         },
         Some("dest") => {
             dest(m.subcommand().1.unwrap().value_of("dest_alias").unwrap());
@@ -232,15 +258,35 @@ fn main() {
     // client_alice.shutdown();
 }
 
-fn dest(alias: &str) {
-    println!("{}\n{}\n", alias, I2PClient::dest(alias));
-}
-
 fn aliases() {
     let m = I2PClient::aliases();
     println!("Aliases...");
     for k in m.keys() {
         println!("{}\n{}\n", k, m.get(k).unwrap());
+    }
+}
+
+fn dest(alias: &str) {
+    println!("{}\n{}\n", alias, I2PClient::dest(alias));
+}
+
+fn gen(sig_type: &str, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
+    match SigType::from_str(sig_type) {
+        Ok(sig_type) => {
+            match I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts)
+            {
+                Ok(mut client) => {
+                    match client.gen(sig_type) {
+                        Ok(t) => {
+                            println!("public key:\n{}\nprivate key:\n{}", t.0, t.1)
+                        },
+                        Err(e) => println!("{}", e)
+                    }
+                },
+                Err(e) => println!("{}", e)
+            }
+        },
+        Err(e) => println!("{}", e)
     }
 }
 

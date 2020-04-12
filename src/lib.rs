@@ -41,15 +41,26 @@ pub enum SigType {
     EdDsaSha512Ed25519ph,
     /// Blinded version of EdDSA, use for encrypted LS2
     /// Pubkey 32 bytes; privkey 32 bytes; hash 64 bytes; sig 64 bytes
-    RedDsaSha512Ed25519
+    RedDsaSha512Ed25519,
+    DsaSha1
 }
 
 impl SigType {
-    fn as_string(&self) -> &str {
+    pub fn as_string(&self) -> &'static str {
         match *self {
             SigType::EdDsaSha512Ed25519 => "EDDSA_SHA512_ED25519",
             SigType::EdDsaSha512Ed25519ph => "EDDSA_SHA512_ED25519PH",
             SigType::RedDsaSha512Ed25519 => "REDDSA_SHA512_ED25519",
+            SigType::DsaSha1 => "DSA_SHA1"
+        }
+    }
+    pub fn from_str(sig_type: &str) -> Result<Self, Error> {
+        match sig_type {
+            "EDDSA_SHA512_ED25519" => Ok(SigType::EdDsaSha512Ed25519),
+            "EDDSA_SHA512_ED25519PH" => Ok(SigType::EdDsaSha512Ed25519ph),
+            "REDDSA_SHA512_ED25519" => Ok(SigType::RedDsaSha512Ed25519),
+            "DSA_SHA1" => Ok(SigType::DsaSha1),
+            _ => Result::Err(Error::new(ErrorKind::InvalidData, format!("SigType provided not supported: {}", sig_type)))
         }
     }
 }
@@ -353,6 +364,10 @@ impl Session {
         })
     }
 
+    pub fn gen(&mut self, sig_type: SigType) -> Result<(String,String), Error> {
+        self.sam.gen(sig_type)
+    }
+
     pub fn send_packet(&mut self, packet: Packet) {
         self.sam.send_packet(packet);
     }
@@ -505,7 +520,6 @@ impl I2PClient {
                                   max_version,
             ) {
                 Ok(session) => {
-                    info!("IP: {}, Dest: {}",session.sam_api().unwrap().ip().to_string(), session.local_full_dest.clone());
                     local_full_dest = session.local_full_dest;
                     local_dest = session.local_dest;
                     if use_local && !local_addr_loaded {
@@ -595,6 +609,10 @@ impl I2PClient {
                 String::from("None")
             }
         }
+    }
+
+    pub fn gen(&mut self, sig_type: SigType) -> Result<(String,String), Error> {
+        self.session.gen(sig_type)
     }
 
     // Send out Packet with optional Envelope
