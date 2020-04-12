@@ -116,3 +116,15 @@ Please read version notes on I2P SAM:
     ```shell script
     sudo apt install build-essential
     ```
+
+## Demo
+
+### CLI Help
+cargo run
+
+### Generate
+cargo run -- gen --sig_type EDDSA_SHA512_ED25519
+
+### Send/Receive
+1. Receiver: cargo run -- --alias Bob --min 3.0 --max 3.1 receive
+2. Sender: cargo run -- --alias Alice --min 3.0 --max 3.1 send --message 'hello Bob, sincerely Alice' --to [Bob's local destination here]
