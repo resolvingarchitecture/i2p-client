@@ -653,11 +653,21 @@ impl I2PClient {
     // }
 }
 
-// impl Service for I2PClient {
-//     fn operate(&mut self, operation: u8, env: Envelope) {
-        // let mut packet = Packet::new(1, PacketType::Data as u8, NetworkId::I2P as u8, env.)
-    // }
-// }
+impl Service for I2PClient {
+    fn operate(&mut self, operation: u8, env: Envelope) {
+        // let mut packet = Packet::new(0, PacketType::Data as u8, NetworkId::I2P as u8, env.)
+        match operation {
+            1 => {
+                // Send Datagram
+
+            },
+            _ => {
+                // Terminate
+
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
