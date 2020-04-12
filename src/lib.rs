@@ -289,7 +289,6 @@ impl SamConnection {
         let jacked_msg = ret["MSG"].clone();
         let enc_msg = jacked_msg.split_at(size).0;
         let dec_msg_bytes = base64::decode(enc_msg).unwrap();
-        let dec_msg = String::from_utf8(dec_msg_bytes.clone()).unwrap();
         let env = Envelope::new(0, 0, dec_msg_bytes);
         if self.last_receive_id == 255 {
             self.last_receive_id = 0;
