@@ -55,50 +55,32 @@ Please read version notes on I2P SAM:
 
 ## Goals
 
-*[ ] 1.0.0 - Full SAMv1.0 Compliance
-    *[x] 0.1.0 - Minimal CLI
-        *[x] Connect with local instance
-        *[x] Lists known aliases with b32 addresses (from published personal addressbook - .i2p/eepsite/docroot/hosts.txt)
-        *[x] Find a specific destination based on an alias
-        *[x] Create minimal CLI
+*[ ] 1.0.0 - Minimal Useful Functionality
+    *[x] 0.1.0 - Minimal CLI: Handshake and Session creation
+    *[ ] 0.2.0 - Basic I/O: Send/Receive Datagrams
+    *[ ] 0.4.0 - Service Bus Support: [service_bus](https://crates.io/crates/service-bus) crate implementing Service trait
+    *[ ] 0.6.0 - EEP Site Support: requesting EEPSite pages persisting locally (started but unsure how to make request/reply using SAM interface)
+    *[ ] 0.8.0 - Test Suite
     
-    *[ ] 0.2.0 - Basic I/O
-        *[ ] Send message over I2P
-        *[ ] Receive message over I2P
-    
-    *[ ] 0.3.0 - Service Bus Support
-        *[ ] Support [service_bus](https://crates.io/crates/service-bus) crate implementing Service trait
-    
-    *[ ] 0.4.0 - EEP Site Support
-        *[ ] Support requesting EEPSite pages persisting locally (started but unsure how to make request/reply using SAM interface)
-    
-    *[ ] 0.5.0 - Router Control
-        *[ ] [I2P Control](https://geti2p.net/en/docs/api/i2pcontrol) integration
-    
-    *[ ] 0.6.0 - Examples and Documentation
-        *[ ] Example CLI use cases
-        *[ ] Example Service use cases
-        *[ ] README.md completed
-        *[ ] All code documented
-        *[ ] All examples documented
-    
-    *[ ] 0.7.0 - Fully Tested and Released for Production
-    
-    *[ ] 0.8.0 - Ease of installation
-        *[ ] Determine if local I2P router installed
-        *[ ] Determine local I2P router status
-        *[ ] Auto-install I2P router
-    
-    *[ ] 0.9.0 - All SAMv1.0 features implemented and tested
+*[ ] 2.0.0 Ease of Use
+    *[ ] 2.1.0 - Router Control: [I2P Control](https://geti2p.net/en/docs/api/i2pcontrol) integration 
+    *[ ] 2.2.0 - Example CLI use cases
+    *[ ] 2.3.0 - Example Service use cases
+    *[ ] 2.4.0 - Determine if local I2P router installed
+    *[ ] 2.5.0 - Determine local I2P router status
+    *[ ] 2.6.0 - Auto-install I2P router
+    *[ ] 2.7.0 - README.md completed
+    *[ ] 2.8.0 - All code documented
+    *[ ] 2.9.0 - All examples documented
+   
+*[ ] 3.0.0 SAMv3.0 Compliance
 
-*[ ] 2.0.0 - Full SAMv2.0 Compliance
+*[ ] 3.1.0 SAMv3.1 Compliance
 
-*[ ] 3.0.0 - Full SAMv3.0 Compliance
+*[ ] 3.2.0 SAMv3.2 Compliance
+    *[ ] 3.2.1 -  Ping/Pong
 
-*[ ] 3.1.0 - Full SAMv3.1 Compliance
-
-*[ ] 3.2.0 - Full SAMv3.2 Compliance
-    *[ ] Ping/Pong (Code implemented; waiting on SAM 3.2 support)
+*[ ] 3.3.0 SAMv3.3 Compliance
 
 [Crates.io](https://crates.io/crates/i2p_client)
 
