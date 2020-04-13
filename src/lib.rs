@@ -602,15 +602,17 @@ impl I2PClient {
         }
     }
 
+    /// Generate Public and Private keys IAW sig_type; return in tuple (PUB,PRIV)
     pub fn gen(&mut self, sig_type: SigType) -> Result<(String,String), Error> {
         self.session.gen(sig_type)
     }
 
-    // Send out Packet with optional Envelope
+    /// Send to destination UTF-8 formatted bytes
     pub fn send(&mut self, to: String, msg: Vec<u8>) {
         self.session.send_msg(to, msg);
     }
 
+    /// Receive tuple with from destination and message in UTF-8 formatted bytes
     pub fn receive(&mut self) -> Result<(String,Vec<u8>), Error> {
         self.session.recv_msg()
     }
