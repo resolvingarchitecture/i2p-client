@@ -12,7 +12,7 @@ use log::{debug,info,warn};
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::convert::{TryFrom};
-use std::io;
+use std::{io, thread};
 use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read, Cursor};
 use std::path::{Path};
 use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
@@ -21,9 +21,7 @@ use nom::{IResult};
 
 mod parsers;
 use crate::parsers::{datagram_send, datagram_received, gen_reply, pong_received, ping_received, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
-
-use ra_common::models::{Packet, Service, Envelope, PacketType, NetworkId};
-use ra_common::utils::wait::wait_a_sec;
+use std::time::Duration;
 
 static DEFAULT_API: &'static str = "127.0.0.1:7656";
 // static DEFAULT_UDP_API: &'static str = "127.0.0.1:7655";
@@ -255,52 +253,33 @@ impl SamConnection {
     //         Some(env)))
     // }
 
-    pub fn send_packet(&mut self, mut packet: Packet) {
-        if packet.envelope.is_some() {
-            if self.last_send_id == 255 {
-                self.last_send_id = 0;
-            }
-            self.last_send_id += 1;
-            packet.id = self.last_send_id;
-            let env = packet.envelope.unwrap();
-            let enc_msg = base64::encode(env.msg);
-            let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={} \n{}",
-                                       packet.to_addr,
-                                       enc_msg.len(),
-                                       enc_msg.as_str()
-            );
-            if send_env_msg.len() > 31_500 {
-                warn!("Message length is greater than 31.5KB; recommended to stay below this and ideally less than 11KB.")
-            } else if send_env_msg.len() > 61_500 {
-                warn!("Unable to send messages greater than 61.5KB (tunnel limit). Rejecting.");
-                return;
-            }
-            info!("Sending packet (size={})...",send_env_msg.len());
-            self.send_async(send_env_msg);
-            info!("Packet {} sent.", packet.id);
+    pub fn send_msg(&mut self, to: String, msg: Vec<u8>) {
+        let enc_msg = base64::encode(msg);
+        let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={} \n{}",
+                                   to,
+                                   enc_msg.len(),
+                                   enc_msg.as_str()
+        );
+        if send_env_msg.len() > 31_500 {
+            warn!("Message length is greater than 31.5KB; recommended to stay below this and ideally less than 11KB.")
+        } else if send_env_msg.len() > 61_500 {
+            warn!("Unable to send messages greater than 61.5KB (tunnel limit). Rejecting.");
+            return;
         }
+        info!("Sending packet (size={})...", send_env_msg.len());
+        self.send_async(send_env_msg);
+        info!("Msg sent.");
     }
 
-    pub fn recv_packet(&mut self) -> Result<Packet, Error> {
-        info!("Waiting on packet...");
+    pub fn recv_msg(&mut self) -> Result<(String,Vec<u8>), Error> {
+        info!("Waiting on msg...");
         let res = self.receive(datagram_received);
         let ret = res.unwrap();
         let size :usize = ret["SIZE"].clone().parse().unwrap();
         let jacked_msg = ret["MSG"].clone();
         let enc_msg = jacked_msg.split_at(size).0;
         let dec_msg_bytes = base64::decode(enc_msg).unwrap();
-        let env = Envelope::new(0, 0, dec_msg_bytes);
-        if self.last_receive_id == 255 {
-            self.last_receive_id = 0;
-        }
-        self.last_receive_id += 1;
-        Ok(Packet::new(
-            self.last_receive_id,
-            PacketType::Data as u8,
-            NetworkId::I2P as u8,
-            ret["DESTINATION"].clone(),
-            String::new(),
-            Some(env)))
+        Ok((ret["DESTINATION"].clone(), dec_msg_bytes))
     }
 }
 
@@ -380,12 +359,12 @@ impl Session {
         self.sam.gen(sig_type)
     }
 
-    pub fn send_packet(&mut self, packet: Packet) {
-        self.sam.send_packet(packet);
+    pub fn send_msg(&mut self, to: String, msg: Vec<u8>) {
+        self.sam.send_msg(to, msg);
     }
 
-    pub fn recv_packet(&mut self) -> Result<Packet,Error> {
-        self.sam.recv_packet()
+    pub fn recv_msg(&mut self) -> Result<(String,Vec<u8>),Error> {
+        self.sam.recv_msg()
     }
 
     // pub fn ping(&mut self, msg: &str) -> Option<String> {
@@ -573,7 +552,7 @@ impl I2PClient {
                 return Err(Error::new(ErrorKind::ConnectionRefused, format!("Unable to connect: max attempts ({}) reached", max_connection_attempts)))
             }
             warn!("Unable to create Session ({})...waiting a few seconds...", res.err().unwrap());
-            wait_a_sec(3)
+            thread::sleep(Duration::from_secs(3));
         }
     }
 
@@ -628,12 +607,12 @@ impl I2PClient {
     }
 
     // Send out Packet with optional Envelope
-    pub fn send(&mut self, packet: Packet) {
-        self.session.send_packet(packet);
+    pub fn send(&mut self, to: String, msg: Vec<u8>) {
+        self.session.send_msg(to, msg);
     }
 
-    pub fn receive(&mut self) -> Result<Packet, Error> {
-        self.session.recv_packet()
+    pub fn receive(&mut self) -> Result<(String,Vec<u8>), Error> {
+        self.session.recv_msg()
     }
 
     // pub fn ping(&mut self, msg: &str) -> Option<String> {
@@ -653,21 +632,19 @@ impl I2PClient {
     // }
 }
 
-impl Service for I2PClient {
-    fn operate(&mut self, operation: u8, env: Envelope) {
-        // let mut packet = Packet::new(0, PacketType::Data as u8, NetworkId::I2P as u8, env.)
-        match operation {
-            1 => {
-                // Send Datagram
-
-            },
-            _ => {
-                // Terminate
-
-            }
-        }
-    }
-}
+// impl Service for I2PClient {
+//     fn operate(&mut self, operation: u8, msg: Envelope) {
+//         let mut packet = Packet::new(0, PacketType::Data as u8, NetworkId::I2P as u8, env.)
+//         match operation {
+//             1 => {
+//
+//             },
+//             _ => {
+//
+//             }
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

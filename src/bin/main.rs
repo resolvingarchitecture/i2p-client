@@ -5,7 +5,6 @@ extern crate simple_logger;
 
 use clap::{crate_version, App, Arg, AppSettings};
 use i2p_client::{I2PClient, SigType};
-use ra_common::models::{Envelope, Packet, PacketType, NetworkId};
 
 fn main() {
     simple_logger::init().unwrap();
@@ -301,16 +300,8 @@ fn send(to: String, message: String, max_attempts: u8, use_local: bool, alias: S
     match I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts) {
         Ok(mut client) => {
             for i in 0..max_attempts {
-                let env = Envelope::new(0, 0, message.clone().into_bytes());
-                let packet = Packet::new(
-                    i,
-                    PacketType::Data as u8,
-                    NetworkId::I2P as u8,
-                    client.local_full_dest.clone(),
-                    to.clone(),
-                    Some(env));
                 println!("Sending msg...");
-                client.send(packet);
+                client.send(to.clone(), message.clone().into_bytes());
                 println!("Send successful")
             }
         },
@@ -322,13 +313,10 @@ fn receive(use_local: bool, alias: String, min_version: &str, max_version: &str,
     match I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts) {
         Ok(mut client) => {
             match client.receive() {
-                Ok(packet) => {
-                    if packet.envelope.is_some() {
-                        let env = packet.envelope.unwrap();
-                        match String::from_utf8(env.msg) {
-                            Ok(msg) => println!("msg received: {}", msg.as_str()),
-                            Err(e) => println!("{}", e)
-                        }
+                Ok(tup) => {
+                    match String::from_utf8(tup.1) {
+                        Ok(msg) => println!("msg received: {}\nfrom: {}", msg, tup.0),
+                        Err(e) => println!("{}", e)
                     }
                 },
                 Err(e) => println!("{}", e)

@@ -127,4 +127,6 @@ cargo run -- gen --sig_type EDDSA_SHA512_ED25519
 
 ### Send/Receive
 1. Receiver: cargo run -- --alias Bob --min 3.0 --max 3.1 receive
-2. Sender: cargo run -- --alias Alice --min 3.0 --max 3.1 send --message 'hello Bob, sincerely Alice' --to [Bob's local destination here]
+2. Sender: cargo run -- --alias Alice --min 3.0 --max 3.1 send --message 'hello Bob, sincerely Alice' --to [Bob's local destination here - the one with AAAA on end - size=516]
+
+Note: Initial session creation can take a few minutes waiting on tunnels; 1st message may not get through, try another
