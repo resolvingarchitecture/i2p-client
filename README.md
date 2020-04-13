@@ -58,7 +58,7 @@ Please read version notes on I2P SAM:
 *[ ] 1.0.0 - Minimal Useful Functionality
     *[x] 0.1.0 - Minimal CLI: Handshake and Session creation
     *[x] 0.2.0 - Basic I/O: Send/Receive Datagrams
-    *[x] 0.3.0 - Guaranteed Delivery: use acks with resends to ensure message delivered only once
+    *[ ] 0.3.0 - Guaranteed Delivery: use acks with resends to ensure message delivered only once
     *[ ] 0.4.0 - Service Bus Support: [service_bus](https://crates.io/crates/service-bus) crate implementing Service trait
     *[ ] 0.5.0 - EEP Site Support: requesting EEPSite pages persisting locally (started but unsure how to make request/reply using SAM interface)
     *[ ] 0.6.0 - Router Control: [I2P Control](https://geti2p.net/en/docs/api/i2pcontrol) integration 
