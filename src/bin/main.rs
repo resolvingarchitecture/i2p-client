@@ -8,7 +8,7 @@ use i2p_client::{I2PClient, SigType};
 
 fn main() {
     simple_logger::init().unwrap();
-    let m = App::new("i2p")
+    let m = App::new("i2p_client")
         .about("A SAM I2P client for the local I2P router instance. Not compliant with any version yet.")
         .version(crate_version!())
         .author("Brian Taylor <brian@resolvingarchitecture.io>")
