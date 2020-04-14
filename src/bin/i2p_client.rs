@@ -89,10 +89,6 @@ fn main() {
                         .long("message")
                         .required(true)
                         .takes_value(true),
-                    Arg::with_name("max_attempts")
-                        .help("maximum number of sends until an ack is received")
-                        .long("max_attempts")
-                        .takes_value(true),
                 ])
         )
         .subcommand(
@@ -177,14 +173,9 @@ fn main() {
         },
         Some("send") => {
             let am = m.subcommand().1.unwrap();
-            let mut max_attempts :u8 = 1;
-            if am.value_of("max_attempts").is_some() {
-                max_attempts = am.value_of("max_attempts").unwrap().parse().unwrap();
-            }
             send(
                 String::from(am.value_of("to").unwrap()),
                 String::from(am.value_of("message").unwrap()),
-                max_attempts,
                 local,
                 alias,
                 min_version,
@@ -296,14 +287,12 @@ fn gen(sig_type: &str, use_local: bool, alias: String, min_version: &str, max_ve
     }
 }
 
-fn send(to: String, message: String, max_attempts: u8, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
+fn send(to: String, message: String, use_local: bool, alias: String, min_version: &str, max_version: &str, max_connection_attempts: u8) {
     match I2PClient::new(use_local, alias, min_version, max_version, max_connection_attempts) {
         Ok(mut client) => {
-            for i in 0..max_attempts {
-                println!("Sending msg...");
-                client.send(to.clone(), message.clone().into_bytes());
-                println!("Send successful")
-            }
+            println!("Sending msg...");
+            client.send(to.clone(), message.clone().into_bytes());
+            println!("Send successful")
         },
         Err(e) => println!("{}", e)
     }

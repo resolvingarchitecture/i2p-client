@@ -2,7 +2,6 @@ extern crate dirs;
 extern crate base64;
 #[macro_use]
 extern crate nom;
-#[macro_use]
 extern crate log;
 
 use std::fs::File;
@@ -13,14 +12,14 @@ use std::clone::Clone;
 use std::collections::HashMap;
 use std::convert::{TryFrom};
 use std::{io, thread};
-use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read, Cursor};
+use std::io::{BufReader, Error, ErrorKind, BufRead, Write, Read};
 use std::path::{Path};
 use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 
 use nom::{IResult};
 
 mod parsers;
-use crate::parsers::{datagram_send, datagram_received, gen_reply, pong_received, ping_received, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
+use crate::parsers::{datagram_received, gen_reply, sam_hello, sam_naming_reply, sam_session_status, sam_stream_status};
 use std::time::Duration;
 
 static DEFAULT_API: &'static str = "127.0.0.1:7656";
@@ -134,7 +133,7 @@ impl SamConnection {
     fn send_async(&mut self, msg: String) {
         debug!("-> {}", &msg);
         match self.conn.write_all(&msg.into_bytes()) {
-            Ok(m) => debug!("{}", "msg written to conn"),
+            Ok(_) => debug!("{}", "msg written to conn"),
             Err(e) => warn!("{}", e)
         }
     }
@@ -309,7 +308,7 @@ impl TryFrom<&str> for SessionStyle {
             "DATAGRAM" => Ok(SessionStyle::Datagram),
             "RAW" => Ok(SessionStyle::Raw),
             "STREAM" => Ok(SessionStyle::Stream),
-            n => Err(())
+            _ => Err(())
         }
     }
 }
