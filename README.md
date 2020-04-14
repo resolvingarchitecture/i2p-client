@@ -116,14 +116,24 @@ Please read version notes on I2P SAM:
     ```shell script
     sudo apt install build-essential
     ```
+9. cd to a projects folder
+10. install crate
+    ```shell script
+    cargo install i2p_client
+    ```
+
 
 ## Demo
 
 ### CLI Help
-cargo run
+    ```shell script
+    cargo run
+    ```
 
 ### Generate
-cargo run -- gen --sig_type EDDSA_SHA512_ED25519
+    ```shell script
+    cargo run -- gen --sig_type EDDSA_SHA512_ED25519
+    ```
 
 ### Send/Receive
 1. Receiver: 
