@@ -126,7 +126,13 @@ cargo run
 cargo run -- gen --sig_type EDDSA_SHA512_ED25519
 
 ### Send/Receive
-1. Receiver: cargo run -- --alias Bob receive
-2. Sender: cargo run -- --alias Alice send --message 'hello Bob, sincerely Alice' --to [Bob's local destination here - the one with AAAA on end - size=516]
+1. Receiver: 
+    ```shell script
+    cargo run -- --alias Bob receive
+    ```
+2. Sender:
+    ```shell script
+    cargo run -- --alias Alice send --message 'hello Bob, sincerely Alice' --to [Bob's local destination here - the one with AAAA on end - size=516]
+    ```
 
 Note: Initial session creation can take a few minutes waiting on tunnels; 1st message may not get through, try another
