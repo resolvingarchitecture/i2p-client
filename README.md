@@ -116,33 +116,31 @@ Please read version notes on I2P SAM:
     ```shell script
     sudo apt install build-essential
     ```
-9. cd to a projects folder
-10. install crate
+9. install crate
     ```shell script
     cargo install i2p_client
     ```
-
 
 ## Demo
 
 ### CLI Help
     ```shell script
-    cargo run
+    ~/.cargo/bin/i2p_client
     ```
 
 ### Generate
     ```shell script
-    cargo run -- gen --sig_type EDDSA_SHA512_ED25519
+    ~/.cargo/bin/i2p_client gen --sig_type EDDSA_SHA512_ED25519
     ```
 
 ### Send/Receive
 1. Receiver: 
     ```shell script
-    cargo run -- --alias Bob receive
+    ~/.cargo/bin/i2p_client --alias Bob receive
     ```
 2. Sender:
     ```shell script
-    cargo run -- --alias Alice send --message 'hello Bob, sincerely Alice' --to [Bob's local destination here - the one with AAAA on end - size=516]
+    ~/.cargo/bin/i2p_client --alias Alice send --message 'hello Bob, sincerely Alice' --to [Bob's local destination here - the one with AAAA on end - size=516]
     ```
 
 Note: Initial session creation can take a few minutes waiting on tunnels; 1st message may not get through, try another
