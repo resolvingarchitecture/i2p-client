@@ -149,19 +149,20 @@ impl SamConnection {
             F: Fn(&str) -> IResult<&str, Vec<(&str, &str)>>,
     {
         let mut reader = BufReader::new( &self.conn);
-
+        let mut buf = String::new();
         let mut header = String::new();
-        let mut ack = String::new();
         let mut body = String::new();
-        reader.read_line(&mut header)?;
-        reader.read_line(&mut ack)?;
-        reader.read_line(&mut body)?;
-        debug!("<- (header) {}", &header);
-        debug!("<- (ack) {}", &ack);
+        let header_num_bytes = reader.read_line(&mut buf).unwrap();
+        header.push_str(buf.as_str());
+        buf.clear();
+        let body_num_bytes = reader.read_line(&mut buf).unwrap();
+        body.push_str(buf.as_str());
+        buf.clear();
+        debug!("<- HEADER: ({}) {}", header_num_bytes, &header);
+        debug!("<- BODY: ({}) {}", body_num_bytes, &body);
         let received = received_parser(&header);
         let vec = received.unwrap();
         let mut vec_opts = vec.1;
-        vec_opts.push(("ACK", ack.as_str()));
         vec_opts.push(("MSG", body.as_str()));
         verify_received(&vec_opts).map(|m| {
             m.iter()
@@ -256,9 +257,9 @@ impl SamConnection {
     //         Some(env)))
     // }
 
-    pub fn send_msg(&mut self, to: String, msg: Vec<u8>, ack: u8) {
+    pub fn send_msg(&mut self, to: String, msg: Vec<u8>) {
         let enc_msg = base64::encode(msg);
-        let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={} \n{}\n{}", to, enc_msg.len(), ack, enc_msg.as_str());
+        let send_env_msg = format!("DATAGRAM SEND DESTINATION={} SIZE={} \n{}\n", to, enc_msg.len(), enc_msg.as_str());
         if send_env_msg.len() > 31_500 {
             warn!("Message length is greater than 31.5KB; recommended to stay below this and ideally less than 11KB.")
         } else if send_env_msg.len() > 61_500 {
@@ -275,32 +276,11 @@ impl SamConnection {
         let res = self.receive(datagram_received);
         let ret = res.unwrap();
         let size :usize = ret["SIZE"].clone().parse().unwrap();
+        // TODO: Figure out why the header gets appended to the body so we don't have to strip it off
         let jacked_msg = ret["MSG"].clone();
         let enc_msg = jacked_msg.split_at(size).0;
         let dec_msg_bytes = base64::decode(enc_msg).unwrap();
         let from = ret["DESTINATION"].clone();
-        if !ret["ACK"].is_empty() {
-            info!("ACK requested");
-            let ack_type :u8 = ret["ACK"].clone().trim().parse().unwrap();
-            match ack_type {
-                0 => {
-                    // Explicitly do not ack
-                    info!("Do not ack")
-                }
-                1 => {
-                    // Ack - don't wait on ack-ack
-                    info!("Ack no wait")
-                },
-                2 => {
-                    // Ack - wait on ack-ack and resend if not received within 90 seconds
-                    info!("Ack and wait")
-                },
-                _ => {
-                    // Assume do not ack although log that it's not supported
-                    warn!("{} ack type not supported - ignoring with no ack", ack_type);
-                }
-            }
-        }
         Ok((from, dec_msg_bytes))
     }
 }
@@ -381,8 +361,8 @@ impl Session {
         self.sam.gen(sig_type)
     }
 
-    pub fn send_msg(&mut self, to: String, msg: Vec<u8>, ack: u8) {
-        self.sam.send_msg(to, msg, ack);
+    pub fn send_msg(&mut self, to: String, msg: Vec<u8>) {
+        self.sam.send_msg(to, msg);
     }
 
     pub fn recv_msg(&mut self) -> Result<(String,Vec<u8>),Error> {
@@ -630,8 +610,8 @@ impl I2PClient {
     }
 
     /// Send to destination UTF-8 formatted bytes
-    pub fn send(&mut self, to: String, msg: Vec<u8>, ack: u8) {
-        self.session.send_msg(to, msg, ack);
+    pub fn send(&mut self, to: String, msg: Vec<u8>) {
+        self.session.send_msg(to, msg);
     }
 
     /// Receive tuple with from destination and message in UTF-8 formatted bytes
