@@ -123,12 +123,14 @@ Please read version notes on I2P SAM:
 
 ## Demo
 
-### CLI Help
+
+### Utilities
+1. CLI Help: 
     ```shell script
     ~/.cargo/bin/i2p_client
     ```
 
-### Generate
+2. Generate Pub/Priv keys:
     ```shell script
     ~/.cargo/bin/i2p_client gen --sig_type EDDSA_SHA512_ED25519
     ```
