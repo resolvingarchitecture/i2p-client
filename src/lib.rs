@@ -99,8 +99,6 @@ fn verify_response<'a>(vec: &'a [(&str, &str)]) -> Result<HashMap<&'a str, &'a s
 }
 
 pub struct SamConnection {
-    last_send_id: u8,
-    last_receive_id: u8,
     conn: TcpStream,
     min_version: String,
     max_version: String,
@@ -173,8 +171,6 @@ impl SamConnection {
     pub fn connect<A: ToSocketAddrs>(addr: A, min_version: &str, max_version: &str) -> Result<SamConnection, Error> {
         let tcp_stream = TcpStream::connect(addr)?;
         let mut conn = SamConnection {
-            last_send_id: 0,
-            last_receive_id: 0,
             conn: tcp_stream ,
             min_version: String::from(min_version),
             max_version: String::from(max_version),
@@ -211,8 +207,6 @@ impl SamConnection {
 
     pub fn duplicate(&self) -> io::Result<SamConnection> {
         self.conn.try_clone().map(|s| SamConnection {
-            last_send_id: self.last_send_id,
-            last_receive_id: self.last_receive_id,
             conn: s,
             min_version: self.min_version.clone(),
             max_version: self.max_version.clone(),
