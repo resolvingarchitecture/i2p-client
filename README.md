@@ -53,7 +53,7 @@ Please read version notes on I2P SAM:
 
 [v1](https://geti2p.net/en/docs/api/sam), [v2](https://geti2p.net/en/docs/api/samv2), [v3](https://geti2p.net/en/docs/api/samv3)
 
-## Goals
+## Roadmap
 
 *[ ] 1.0.0 - Minimal Useful Functionality
     *[x] 0.1.0 - Minimal CLI: Handshake and Session creation
